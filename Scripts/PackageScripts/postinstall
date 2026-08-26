@@ -1,0 +1,16 @@
+#!/bin/zsh
+
+set -eu
+
+application_path="/Applications/PictoJot.app"
+[[ -d "$application_path" ]] || exit 0
+
+console_user="$(/usr/bin/stat -f '%Su' /dev/console)"
+if [[ -z "$console_user" || "$console_user" == "root" || "$console_user" == "loginwindow" ]]; then
+    exit 0
+fi
+
+user_id="$(/usr/bin/id -u "$console_user")"
+/bin/launchctl asuser "$user_id" /usr/bin/sudo -u "$console_user" /usr/bin/open "$application_path"
+
+exit 0

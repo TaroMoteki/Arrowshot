@@ -1,0 +1,601 @@
+import AppKit
+import UniformTypeIdentifiers
+
+private final class CircularColorWell: NSColorWell {
+    override func mouseDown(with event: NSEvent) {
+        activate(true)
+        NSColorPanel.shared.showsAlpha = false
+        NSColorPanel.shared.makeKeyAndOrderFront(self)
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let outerRect = bounds.insetBy(dx: 2, dy: 2)
+        let outer = NSBezierPath(ovalIn: outerRect)
+        NSColor.white.setFill()
+        outer.fill()
+        NSColor.separatorColor.setStroke()
+        outer.lineWidth = 1
+        outer.stroke()
+
+        let swatch = NSBezierPath(ovalIn: outerRect.insetBy(dx: 3, dy: 3))
+        color.setFill()
+        swatch.fill()
+    }
+}
+
+private final class ToolIconButton: NSButton {
+    var displaysTextGlyph = false
+
+    func setSelectedAppearance(_ selected: Bool) {
+        state = selected ? .on : .off
+        layer?.backgroundColor = selected
+            ? NSColor(calibratedWhite: 0.38, alpha: 1).cgColor
+            : NSColor.clear.cgColor
+        contentTintColor = selected ? .white : .secondaryLabelColor
+        if displaysTextGlyph {
+            attributedTitle = NSAttributedString(
+                string: "a",
+                attributes: [
+                    .font: NSFont.systemFont(ofSize: 25, weight: .bold),
+                    .foregroundColor: selected ? NSColor.white : NSColor.secondaryLabelColor
+                ]
+            )
+        }
+    }
+}
+
+private class ArrowCursorVisualEffectView: NSVisualEffectView {
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        addCursorRect(bounds, cursor: .arrow)
+    }
+
+    override func cursorUpdate(with event: NSEvent) {
+        NSCursor.arrow.set()
+    }
+}
+
+private final class DraggableToolbarView: ArrowCursorVisualEffectView {
+    override func mouseDown(with event: NSEvent) {
+        window?.performDrag(with: event)
+    }
+}
+
+private final class EditorWindow: NSWindow {
+    private var arrowCursorRegions: [NSView] = []
+
+    func setArrowCursorRegions(_ views: [NSView]) {
+        arrowCursorRegions = views
+        if let contentView {
+            invalidateCursorRects(for: contentView)
+        }
+    }
+
+    override func sendEvent(_ event: NSEvent) {
+        super.sendEvent(event)
+
+        guard event.type == .mouseMoved ||
+                event.type == .mouseEntered ||
+                event.type == .cursorUpdate else { return }
+        let isInsideArrowRegion = arrowCursorRegions.contains { view in
+            guard !view.isHidden, view.window === self else { return false }
+            return view.bounds.contains(view.convert(event.locationInWindow, from: nil))
+        }
+        if isInsideArrowRegion || !contentLayoutRect.contains(event.locationInWindow) {
+            NSCursor.arrow.set()
+        }
+    }
+}
+
+@MainActor
+final class EditorWindowController: NSWindowController, NSWindowDelegate, CanvasViewDelegate {
+    var onVisibilityChanged: ((Bool) -> Void)?
+
+    private let canvasView = CanvasView(frame: .zero)
+    private let colorWell = CircularColorWell(frame: .zero)
+    private let widthPopup = NSPopUpButton(frame: .zero, pullsDown: false)
+    private let statusLabel = NSTextField(labelWithString: "画像を開いてください")
+    private let cropSizeLabel = NSTextField(labelWithString: "— × —")
+    private var editingControls: NSStackView!
+    private var exportControls: NSStackView!
+    private var cropControls: NSStackView!
+    private var toolButtons: [EditorTool: ToolIconButton] = [:]
+    private var lastNonCropTool: EditorTool = .arrow
+    private var currentSourceName: String?
+    private var isDirty = false
+
+    init() {
+        let window = EditorWindow(
+            contentRect: CGRect(x: 0, y: 0, width: 1120, height: 760),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "PictoJot"
+        window.minSize = CGSize(width: 820, height: 520)
+        window.center()
+        super.init(window: window)
+        window.delegate = self
+        configureInterface()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func showEditor() {
+        guard let window else { return }
+        onVisibilityChanged?(true)
+        showWindow(nil)
+        window.makeKeyAndOrderFront(nil)
+        window.makeFirstResponder(canvasView)
+    }
+
+    func hideEditor() {
+        window?.orderOut(nil)
+        onVisibilityChanged?(false)
+        NSCursor.arrow.set()
+    }
+
+    func presentCapturedImage(_ image: NSImage) {
+        requestImageReplacement(with: image, sourceName: "スクリーンショット")
+    }
+
+    func openImage(at url: URL) {
+        guard let image = NSImage(contentsOf: url) else {
+            showError(title: "画像を開けません", message: "対応している画像ファイルを選択してください。")
+            return
+        }
+        requestImageReplacement(with: image, sourceName: url.lastPathComponent)
+    }
+
+    private func configureInterface() {
+        guard let contentView = window?.contentView else { return }
+
+        let root = NSStackView()
+        root.orientation = .vertical
+        root.spacing = 0
+        root.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(root)
+
+        let toolbar = makeToolbar()
+        let sidebar = makeSidebar()
+        (window as? EditorWindow)?.setArrowCursorRegions([toolbar, sidebar])
+        canvasView.translatesAutoresizingMaskIntoConstraints = false
+        canvasView.delegate = self
+
+        let body = NSStackView(views: [sidebar, canvasView])
+        body.orientation = .horizontal
+        body.spacing = 0
+        body.translatesAutoresizingMaskIntoConstraints = false
+
+        let footer = NSView()
+        footer.translatesAutoresizingMaskIntoConstraints = false
+        statusLabel.textColor = .secondaryLabelColor
+        statusLabel.font = .systemFont(ofSize: 11)
+        statusLabel.translatesAutoresizingMaskIntoConstraints = false
+        footer.addSubview(statusLabel)
+
+        root.addArrangedSubview(toolbar)
+        root.addArrangedSubview(body)
+        root.addArrangedSubview(footer)
+
+        NSLayoutConstraint.activate([
+            root.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            root.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            root.topAnchor.constraint(equalTo: contentView.topAnchor),
+            root.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+            toolbar.heightAnchor.constraint(equalToConstant: 54),
+            sidebar.widthAnchor.constraint(equalToConstant: 60),
+            footer.heightAnchor.constraint(equalToConstant: 25),
+            statusLabel.leadingAnchor.constraint(equalTo: footer.leadingAnchor, constant: 10),
+            statusLabel.centerYAnchor.constraint(equalTo: footer.centerYAnchor)
+        ])
+
+        colorWell.color = PictoJotStyle.defaultAnnotationColor
+        colorWell.isBordered = false
+        colorWell.target = self
+        colorWell.action = #selector(colorChanged(_:))
+
+        widthPopup.addItems(withTitles: ["2", "4", "6", "10"])
+        widthPopup.selectItem(at: 2)
+        widthPopup.target = self
+        widthPopup.action = #selector(widthChanged(_:))
+        selectToolButton(.arrow)
+    }
+
+    private func makeToolbar() -> NSView {
+        let background = DraggableToolbarView()
+        background.material = .titlebar
+        background.blendingMode = .behindWindow
+        background.state = .followsWindowActiveState
+        background.translatesAutoresizingMaskIntoConstraints = false
+
+        let undoButton = makeIconButton(symbol: "arrow.uturn.backward", toolTip: "取り消す", action: #selector(undoEdit))
+        let redoButton = makeIconButton(symbol: "arrow.uturn.forward", toolTip: "やり直す", action: #selector(redoEdit))
+        let copyButton = makeIconButton(symbol: "doc.on.doc", toolTip: "コピー", action: #selector(copyImage))
+        let saveButton = makeIconButton(symbol: "square.and.arrow.down", toolTip: "保存", action: #selector(saveImage))
+        let cancelCropButton = makeButton(title: "キャンセル", action: #selector(cancelCrop), width: 88)
+        let applyCropButton = makeButton(title: "✓ 適用", action: #selector(applyCrop), width: 78)
+
+        editingControls = NSStackView(views: [undoButton, redoButton])
+        editingControls.orientation = .horizontal
+        editingControls.spacing = 7
+        editingControls.alignment = .centerY
+
+        exportControls = NSStackView(views: [copyButton, saveButton])
+        exportControls.orientation = .horizontal
+        exportControls.spacing = 7
+        exportControls.alignment = .centerY
+
+        cropSizeLabel.font = .monospacedDigitSystemFont(ofSize: 13, weight: .medium)
+        cropSizeLabel.alignment = .center
+        cropSizeLabel.translatesAutoresizingMaskIntoConstraints = false
+        cropSizeLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 112).isActive = true
+        cropControls = NSStackView(views: [cropSizeLabel, cancelCropButton, applyCropButton])
+        cropControls.orientation = .horizontal
+        cropControls.spacing = 8
+        cropControls.alignment = .centerY
+        cropControls.isHidden = true
+
+        for controls in [editingControls!, exportControls!, cropControls!] {
+            controls.translatesAutoresizingMaskIntoConstraints = false
+            background.addSubview(controls)
+        }
+
+        NSLayoutConstraint.activate([
+            editingControls.leadingAnchor.constraint(equalTo: background.leadingAnchor, constant: 12),
+            editingControls.centerYAnchor.constraint(equalTo: background.centerYAnchor),
+            exportControls.trailingAnchor.constraint(equalTo: background.trailingAnchor, constant: -12),
+            exportControls.centerYAnchor.constraint(equalTo: background.centerYAnchor),
+            cropControls.trailingAnchor.constraint(equalTo: background.trailingAnchor, constant: -12),
+            cropControls.centerYAnchor.constraint(equalTo: background.centerYAnchor)
+        ])
+        return background
+    }
+
+    private func makeSidebar() -> NSView {
+        let background = ArrowCursorVisualEffectView()
+        background.material = .sidebar
+        background.blendingMode = .withinWindow
+        background.state = .active
+        background.translatesAutoresizingMaskIntoConstraints = false
+
+        let toolStack = NSStackView()
+        toolStack.orientation = .vertical
+        toolStack.spacing = 3
+        toolStack.alignment = .centerX
+
+        for tool in EditorTool.allCases {
+            let button = makeToolButton(for: tool)
+            toolButtons[tool] = button
+            toolStack.addArrangedSubview(button)
+        }
+
+        let separator = NSBox()
+        separator.boxType = .separator
+        separator.translatesAutoresizingMaskIntoConstraints = false
+        separator.widthAnchor.constraint(equalToConstant: 42).isActive = true
+
+        colorWell.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            colorWell.widthAnchor.constraint(equalToConstant: 20),
+            colorWell.heightAnchor.constraint(equalToConstant: 20)
+        ])
+
+        widthPopup.translatesAutoresizingMaskIntoConstraints = false
+        widthPopup.toolTip = "線と文字の太さ"
+        NSLayoutConstraint.activate([
+            widthPopup.widthAnchor.constraint(equalToConstant: 48),
+            widthPopup.heightAnchor.constraint(equalToConstant: 28)
+        ])
+
+        let stack = NSStackView(views: [toolStack, separator, colorWell, widthPopup])
+        stack.orientation = .vertical
+        stack.spacing = 9
+        stack.alignment = .centerX
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        background.addSubview(stack)
+
+        NSLayoutConstraint.activate([
+            stack.topAnchor.constraint(equalTo: background.topAnchor, constant: 12),
+            stack.centerXAnchor.constraint(equalTo: background.centerXAnchor),
+            stack.bottomAnchor.constraint(lessThanOrEqualTo: background.bottomAnchor, constant: -12)
+        ])
+        return background
+    }
+
+    private func makeToolButton(for tool: EditorTool) -> ToolIconButton {
+        let button = ToolIconButton()
+        button.target = self
+        button.action = #selector(toolChanged(_:))
+        button.tag = tool.rawValue
+        button.toolTip = tool.title
+        button.isBordered = false
+        button.focusRingType = .none
+        button.setButtonType(.momentaryChange)
+        button.wantsLayer = true
+        button.layer?.cornerRadius = 6
+        if tool == .text {
+            button.displaysTextGlyph = true
+            button.imagePosition = .noImage
+        } else {
+            button.imagePosition = .imageOnly
+            button.imageScaling = .scaleProportionallyDown
+            if tool == .mosaic {
+                button.image = mosaicToolImage()
+            } else {
+                let symbol = NSImage(systemSymbolName: symbolName(for: tool), accessibilityDescription: tool.title)
+                button.image = symbol?.withSymbolConfiguration(.init(pointSize: 20, weight: .regular))
+            }
+        }
+        button.setSelectedAppearance(false)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            button.widthAnchor.constraint(equalToConstant: 42),
+            button.heightAnchor.constraint(equalToConstant: 42)
+        ])
+        return button
+    }
+
+    private func mosaicToolImage() -> NSImage {
+        let size = CGSize(width: 22, height: 22)
+        let image = NSImage(size: size, flipped: false) { _ in
+            let pixels: [(column: CGFloat, row: CGFloat, opacity: CGFloat)] = [
+                (0, 3, 0.66), (2, 3, 0.38),
+                (1, 2, 0.38), (2, 2, 0.38), (3, 2, 0.38),
+                (1, 1, 0.66), (2, 1, 0.66),
+                (0, 0, 0.50), (1, 0, 0.50), (3, 0, 0.50)
+            ]
+            for pixel in pixels {
+                NSColor.black.withAlphaComponent(pixel.opacity).setFill()
+                CGRect(
+                    x: 1 + pixel.column * 5,
+                    y: 1 + pixel.row * 5,
+                    width: 5,
+                    height: 5
+                ).fill()
+            }
+            return true
+        }
+        image.isTemplate = true
+        image.accessibilityDescription = "モザイク"
+        return image
+    }
+
+    private func symbolName(for tool: EditorTool) -> String {
+        switch tool {
+        case .arrow: "arrow.down.left"
+        case .text: "textformat"
+        case .rectangle: "rectangle"
+        case .ellipse: "circle"
+        case .line: "line.diagonal"
+        case .mosaic: "square.grid.3x3.fill"
+        case .crop: "crop"
+        }
+    }
+
+    private func makeButton(title: String, action: Selector, width: CGFloat? = nil) -> NSButton {
+        let button = NSButton(title: title, target: self, action: action)
+        button.bezelStyle = .rounded
+        button.translatesAutoresizingMaskIntoConstraints = false
+        if let width {
+            button.widthAnchor.constraint(equalToConstant: width).isActive = true
+        }
+        return button
+    }
+
+    private func makeIconButton(symbol: String, toolTip: String, action: Selector) -> NSButton {
+        let button = NSButton()
+        button.target = self
+        button.action = action
+        button.toolTip = toolTip
+        button.bezelStyle = .texturedRounded
+        button.imagePosition = .imageOnly
+        button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: toolTip)?
+            .withSymbolConfiguration(.init(pointSize: 15, weight: .medium))
+        button.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            button.widthAnchor.constraint(equalToConstant: 34),
+            button.heightAnchor.constraint(equalToConstant: 30)
+        ])
+        return button
+    }
+
+    private func requestImageReplacement(with image: NSImage, sourceName: String) {
+        showEditor()
+        if canvasView.baseImage != nil {
+            let alert = NSAlert()
+            alert.alertStyle = .warning
+            alert.messageText = "現在の画像を破棄しますか？"
+            alert.informativeText = "現在表示している画像と編集内容は失われます。"
+            alert.addButton(withTitle: "破棄して開く")
+            alert.addButton(withTitle: "キャンセル")
+            guard alert.runModal() == .alertFirstButtonReturn else { return }
+        }
+        canvasView.loadImage(image)
+        currentSourceName = sourceName
+        isDirty = false
+        updateWindowTitle()
+        updateStatus()
+    }
+
+    @objc private func toolChanged(_ sender: NSButton) {
+        guard let tool = EditorTool(rawValue: sender.tag) else { return }
+        selectToolButton(tool)
+        if tool != .crop {
+            lastNonCropTool = tool
+        }
+        canvasView.selectTool(tool)
+        updateCropControls(isCropping: tool == .crop)
+        if tool == .crop {
+            updateStatus(message: "白いハンドルまたは枠線をドラッグして切り取り範囲を調整します")
+        } else {
+            updateStatus(message: "画像上をドラッグして「\(tool.title)」を追加／既存の注釈をクリックして選択します")
+        }
+    }
+
+    @objc private func applyCrop() {
+        canvasView.applyCropSelection()
+        leaveCropMode()
+    }
+
+    @objc private func cancelCrop() {
+        canvasView.cancelCropSelection()
+        leaveCropMode()
+    }
+
+    private func leaveCropMode() {
+        selectToolButton(lastNonCropTool)
+        canvasView.selectTool(lastNonCropTool)
+        updateCropControls(isCropping: false)
+        updateStatus()
+    }
+
+    private func selectToolButton(_ tool: EditorTool) {
+        for (candidate, button) in toolButtons {
+            button.setSelectedAppearance(candidate == tool)
+        }
+    }
+
+    private func updateCropControls(isCropping: Bool) {
+        editingControls.isHidden = isCropping
+        exportControls.isHidden = isCropping
+        cropControls.isHidden = !isCropping
+        colorWell.isEnabled = !isCropping
+        widthPopup.isEnabled = !isCropping
+    }
+
+    @objc private func colorChanged(_ sender: NSColorWell) {
+        canvasView.setColor(sender.color)
+        sender.needsDisplay = true
+    }
+
+    @objc private func widthChanged(_ sender: NSPopUpButton) {
+        let widths: [CGFloat] = [2, 4, 6, 10]
+        let index = max(0, min(sender.indexOfSelectedItem, widths.count - 1))
+        canvasView.setLineWidth(widths[index])
+    }
+
+    @objc func openImagePanel() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = NSImage.supportedDropTypes
+        panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        openImage(at: url)
+    }
+
+    @objc func saveImage() {
+        guard let image = canvasView.renderedImage(), let data = image.pngData() else {
+            NSSound.beep()
+            return
+        }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.png]
+        panel.nameFieldStringValue = suggestedFileName()
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try data.write(to: url, options: .atomic)
+            isDirty = false
+            currentSourceName = url.lastPathComponent
+            updateWindowTitle()
+            updateStatus(message: "\(url.lastPathComponent) を保存しました")
+        } catch {
+            showError(title: "画像を保存できません", message: error.localizedDescription)
+        }
+    }
+
+    @objc func copyImage() {
+        guard let image = canvasView.renderedImage(), let pngData = image.pngData() else {
+            NSSound.beep()
+            return
+        }
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setData(pngData, forType: .png)
+        updateStatus(message: "完成画像をクリップボードへコピーしました")
+    }
+
+    @objc func pasteImage() {
+        let pasteboard = NSPasteboard.general
+        if let image = NSImage(pasteboard: pasteboard) {
+            requestImageReplacement(with: image, sourceName: "クリップボード")
+            return
+        }
+
+        let options: [NSPasteboard.ReadingOptionKey: Any] = [
+            .urlReadingFileURLsOnly: true,
+            .urlReadingContentsConformToTypes: NSImage.supportedDropTypes.map(\.identifier),
+        ]
+        if let url = (pasteboard.readObjects(forClasses: [NSURL.self], options: options) as? [URL])?.first,
+           let image = NSImage(contentsOf: url) {
+            requestImageReplacement(with: image, sourceName: url.lastPathComponent)
+            return
+        }
+
+        NSSound.beep()
+        updateStatus(message: "クリップボードに対応画像がありません")
+    }
+
+    @objc func undoEdit() {
+        canvasView.undoEdit()
+    }
+
+    @objc func redoEdit() {
+        canvasView.redoEdit()
+    }
+
+    func canvasView(_ canvasView: CanvasView, didReceiveImageAt url: URL) {
+        openImage(at: url)
+    }
+
+    func canvasViewDidChangeContent(_ canvasView: CanvasView) {
+        isDirty = true
+        updateWindowTitle()
+        updateStatus()
+    }
+
+    func canvasView(_ canvasView: CanvasView, didUpdateCropRect rect: CGRect?) {
+        guard let rect else {
+            cropSizeLabel.stringValue = "— × —"
+            return
+        }
+        cropSizeLabel.stringValue = "\(Int(rect.width.rounded())) × \(Int(rect.height.rounded()))"
+    }
+
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        hideEditor()
+        return false
+    }
+
+    private func updateWindowTitle() {
+        let source = currentSourceName.map { " — \($0)" } ?? ""
+        let dirtyMark = isDirty ? " ●" : ""
+        window?.title = "PictoJot\(source)\(dirtyMark)"
+    }
+
+    private func updateStatus(message: String? = nil) {
+        if let message {
+            statusLabel.stringValue = message
+        } else if let image = canvasView.baseImage {
+            statusLabel.stringValue = "\(Int(image.size.width)) × \(Int(image.size.height)) px"
+        } else {
+            statusLabel.stringValue = "画像を開いてください"
+        }
+    }
+
+    private func suggestedFileName() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH.mm.ss"
+        return "PictoJot \(formatter.string(from: Date())).png"
+    }
+
+    private func showError(title: String, message: String) {
+        showEditor()
+        let alert = NSAlert()
+        alert.alertStyle = .critical
+        alert.messageText = title
+        alert.informativeText = message
+        alert.runModal()
+    }
+}

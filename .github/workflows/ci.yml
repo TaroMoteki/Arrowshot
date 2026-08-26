@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: macos-14
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Run Swift package tests
+        run: swift test
+
+      - name: Run core-logic smoke tests
+        run: Scripts/run-core-tests.sh
+
+      - name: Build application bundle
+        run: Scripts/build-app.sh release
+
+      - name: Validate application bundle
+        run: |
+          plutil -lint .build/PictoJot.app/Contents/Info.plist
+          test -f .build/PictoJot.app/Contents/Resources/PictoJot.icns
+          codesign --verify --deep --strict .build/PictoJot.app
+
+      - name: Build and inspect installer package
+        run: |
+          Scripts/build-pkg.sh release
+          version="$(plutil -extract CFBundleShortVersionString raw Resources/Info.plist)"
+          pkgutil --payload-files ".build/PictoJot-$version.pkg" | grep -q 'PictoJot.app/Contents/MacOS/PictoJot'

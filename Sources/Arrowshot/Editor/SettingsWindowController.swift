@@ -208,6 +208,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             ("取り消す / やり直す", "⌘Z / ⇧⌘Z"),
             ("拡大 / 縮小 / フィット", "⌘+ / ⌘- / ⌘0"),
             ("設定を開く", "⌘,"),
+            ("選択したものを移動", "↑↓←→（⇧で10ずつ）"),
             ("ツール切替", "A矢印 T文字 R四角 O楕円 L直線 Mモザイク C切取")
         ]
         for (name, keys) in references {
@@ -222,7 +223,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         }
 
         // Timer duration section.
-        let timerHeading = NSTextField(labelWithString: "タイマー秒数（⌘⇧1）")
+        let timerHeading = NSTextField(labelWithString: "タイマー秒数")
         timerHeading.font = .systemFont(ofSize: 15, weight: .semibold)
         let timerSegmented = NSSegmentedControl(
             labels: ["3秒", "5秒"],

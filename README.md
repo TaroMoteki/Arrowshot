@@ -37,6 +37,7 @@ Everything runs locally on your Mac. No account, no cloud, no network access.
 | Undo / Redo | ⌘Z / ⌘⇧Z |
 | Zoom in / out / fit | ⌘+ / ⌘− / ⌘0 |
 | Open Settings | ⌘, |
+| Move the selected object | Arrow keys (1 pt), Shift + arrow keys (10 pt) |
 | Switch tools | A (arrow), T (text), R (rectangle), O (ellipse), L (line), M (pixelate), C (crop), or 1–7 |
 
 ## Settings

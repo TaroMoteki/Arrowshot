@@ -148,6 +148,9 @@ final class CanvasView: NSView, NSTextViewDelegate {
     private var stateBeforeDrag: EditorSnapshot?
     private var selectionDragMode: SelectionDragMode?
     private var didChangeDuringDrag = false
+    /// The object being nudged with the arrow keys. Consecutive nudges of it
+    /// share one undo step; any other edit, click, or undo ends the series.
+    private var nudgeSeriesID: UUID?
     private var pixelatedImageCache: NSImage?
     private var pointerTrackingArea: NSTrackingArea?
     private var inlineTextEditor: InlineTextEditor?
@@ -363,10 +366,12 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
 
     func undoEdit() {
+        nudgeSeriesID = nil
         editingUndoManager.undo()
     }
 
     func redoEdit() {
+        nudgeSeriesID = nil
         editingUndoManager.redo()
     }
 
@@ -899,6 +904,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
 
     override func mouseDown(with event: NSEvent) {
+        nudgeSeriesID = nil
         guard let baseImage else { return }
         // Clicking away from an open text box only finishes it (like Skitch);
         // the next click starts a new one. Otherwise a fresh empty box would
@@ -1107,6 +1113,15 @@ final class CanvasView: NSView, NSTextViewDelegate {
             deleteSelection()
             return
         }
+        // Arrow keys nudge the selected object: 1 pt, or 10 pt with Shift.
+        if inlineTextEditor == nil,
+           event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
+           let direction = CanvasView.nudgeDirection(forKeyCode: event.keyCode),
+           selectedIndex != nil {
+            let step: CGFloat = event.modifierFlags.contains(.shift) ? 10 : 1
+            nudgeSelection(by: CGPoint(x: direction.x * step, y: direction.y * step))
+            return
+        }
         // Single-key tool shortcuts (only when not editing text and no modifier).
         if inlineTextEditor == nil,
            event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
@@ -1144,6 +1159,29 @@ final class CanvasView: NSView, NSTextViewDelegate {
             return true
         }
         return super.performKeyEquivalent(with: event)
+    }
+
+    private static func nudgeDirection(forKeyCode keyCode: UInt16) -> CGPoint? {
+        switch keyCode {
+        case 123: return CGPoint(x: -1, y: 0)
+        case 124: return CGPoint(x: 1, y: 0)
+        case 125: return CGPoint(x: 0, y: 1)
+        case 126: return CGPoint(x: 0, y: -1)
+        default: return nil
+        }
+    }
+
+    private func nudgeSelection(by proposedOffset: CGPoint) {
+        guard let index = selectedIndex, let baseImage else { return }
+        let offset = annotations[index].constrainedTranslation(proposedOffset, within: baseImage.size)
+        guard offset != .zero else { return }
+        let id = annotations[index].id
+        if nudgeSeriesID != id {
+            registerUndo(to: snapshot(), actionName: "注釈を移動")
+        }
+        nudgeSeriesID = id
+        annotations[index].move(by: offset)
+        contentDidChange()
     }
 
     private func deleteSelection() {
@@ -1804,6 +1842,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
 
     private func registerUndo(to previous: EditorSnapshot, actionName: String) {
+        nudgeSeriesID = nil
         editingUndoManager.registerUndo(withTarget: self) { target in
             let current = target.snapshot()
             target.registerUndo(to: current, actionName: actionName)

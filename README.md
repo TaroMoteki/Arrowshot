@@ -27,7 +27,6 @@ Everything runs locally on your Mac. No account, no cloud, no network access.
 | Capture a region or window | ⌘⇧2 | Yes |
 | Capture with a timer | ⌘⇧1 | Yes |
 | Capture the full screen | ⌘⌥⇧3 | Yes |
-| Open Settings | ⌘⇧, | — |
 
 ### In the editor
 
@@ -42,7 +41,7 @@ Everything runs locally on your Mac. No account, no cloud, no network access.
 
 ## Settings
 
-Open Settings with ⌘⇧, from any app, or ⌘, while Arrowshot is active. You can change:
+Open Settings with ⌘, while Arrowshot is active (click its Dock icon first), or from the menu-bar icon. You can change:
 
 - **Capture shortcuts** — click a field and press the new key combination (include ⌘, ⌃, or ⌥). **Reset to Defaults** (デフォルトに戻す) restores the original keys.
 - **Save folder** — where ⌘S saves instantly. Defaults to Downloads.

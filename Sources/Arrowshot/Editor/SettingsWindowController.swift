@@ -207,7 +207,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             ("コピー", "⌘C"),
             ("取り消す / やり直す", "⌘Z / ⇧⌘Z"),
             ("拡大 / 縮小 / フィット", "⌘+ / ⌘- / ⌘0"),
-            ("設定を開く", "⇧⌘,"),
+            ("設定を開く", "⌘,"),
             ("ツール切替", "A矢印 T文字 R四角 O楕円 L直線 Mモザイク C切取")
         ]
         for (name, keys) in references {

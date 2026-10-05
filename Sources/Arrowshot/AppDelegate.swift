@@ -1,5 +1,4 @@
 import AppKit
-import Carbon.HIToolbox
 import ServiceManagement
 
 @MainActor
@@ -87,15 +86,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         updateCaptureMenuShortcut(timerCaptureItem, combo: settings.combo(for: .timer))
         updateCaptureMenuShortcut(fullScreenCaptureItem, combo: settings.combo(for: .fullScreen))
         timerCaptureItem.title = "タイマー十字スナップショット（\(CaptureTimerSettings.seconds)秒）"
-
-        // Fixed global shortcut to open Settings, so the menu-bar icon is never
-        // needed even when it is buried among other menu-bar items.
-        GlobalHotKeyCenter.shared.setHotKey(
-            name: "openSettings",
-            combo: HotKeyCombo(keyCode: UInt32(kVK_ANSI_Comma), carbonModifiers: UInt32(cmdKey | shiftKey))
-        ) { [weak self] in
-            self?.openSettings()
-        }
     }
 
     private func updateCaptureMenuShortcut(_ item: NSMenuItem?, combo: HotKeyCombo) {

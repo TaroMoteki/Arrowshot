@@ -167,8 +167,11 @@ struct CoreLogicSmokeTests {
         let retinaCapture = NSImage(cgImage: highResolutionRep.cgImage!, size: CGSize(width: 10, height: 6))
         let normalizedRetina = retinaCapture.normalizedForEditing()
         precondition(normalizedRetina.size == CGSize(width: 10, height: 6))
-        precondition(normalizedRetina.representations.first?.pixelsWide == 20)
-        precondition(normalizedRetina.representations.first?.pixelsHigh == 12)
+        // Check the backing bitmap that export uses; representation pixel metadata
+        // is reported differently on macOS 14.
+        let normalizedBitmap = normalizedRetina.cgImageValue
+        precondition(normalizedBitmap?.width == 20, "width: \(String(describing: normalizedBitmap?.width))")
+        precondition(normalizedBitmap?.height == 12, "height: \(String(describing: normalizedBitmap?.height))")
 
         // An image with no meaningful point size falls back to its pixel size.
         let oddScaleImage = NSImage(cgImage: highResolutionRep.cgImage!, size: CGSize(width: 13, height: 7))

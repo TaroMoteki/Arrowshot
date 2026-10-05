@@ -5,7 +5,7 @@ import Carbon.HIToolbox
 ///
 /// `RegisterEventHotKey` works even while the app runs as a menu-bar accessory
 /// and does not require Accessibility permission, so a shortcut can trigger a
-/// capture without the PictoJot menu being open.
+/// capture without the Arrowshot menu being open.
 @MainActor
 final class GlobalHotKeyCenter {
     static let shared = GlobalHotKeyCenter()
@@ -15,7 +15,7 @@ final class GlobalHotKeyCenter {
     private var eventHandler: EventHandlerRef?
     private var nextID: UInt32 = 1
 
-    // Four-char signature 'PJHK' identifying PictoJot's hot keys.
+    // Four-char signature 'PJHK' identifying Arrowshot's hot keys.
     private let signature: OSType = 0x504A_484B
 
     private init() {}

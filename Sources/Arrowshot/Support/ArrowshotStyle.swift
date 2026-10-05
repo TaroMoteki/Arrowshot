@@ -1,6 +1,6 @@
 import AppKit
 
-enum PictoJotStyle {
+enum ArrowshotStyle {
     /// Default annotation color: red (#FF3B30).
     static let defaultAnnotationColor = NSColor(
         srgbRed: 1,

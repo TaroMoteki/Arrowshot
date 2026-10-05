@@ -57,15 +57,15 @@ struct CoreLogicSmokeTests {
         precondition(nativeSize.width == 2044)
         precondition(nativeSize.height == 1318)
 
-        let referenceColor = PictoJotStyle.defaultAnnotationColor.usingColorSpace(.sRGB)!
+        let referenceColor = ArrowshotStyle.defaultAnnotationColor.usingColorSpace(.sRGB)!
         precondition(abs(referenceColor.redComponent - 1) < 0.0001)
         precondition(abs(referenceColor.greenComponent - 59 / 255) < 0.0001)
         precondition(abs(referenceColor.blueComponent - 48 / 255) < 0.0001)
-        let outlineColor = PictoJotStyle.textOutlineColor.usingColorSpace(.sRGB)!
+        let outlineColor = ArrowshotStyle.textOutlineColor.usingColorSpace(.sRGB)!
         precondition(outlineColor.redComponent == 1)
         precondition(outlineColor.greenComponent == 1)
         precondition(outlineColor.blueComponent == 1)
-        precondition(PictoJotStyle.textOutlineWidth > 0)
+        precondition(ArrowshotStyle.textOutlineWidth > 0)
 
         var arrow = Annotation(
             kind: .arrow,

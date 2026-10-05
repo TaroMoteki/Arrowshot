@@ -1,103 +1,81 @@
-# PictoJot
+# Arrowshot
 
 [日本語](README_ja.md)
 
-PictoJot is a native macOS menu-bar utility for capturing screenshots and adding lightweight annotations. Captures are processed locally, and no account or network connection is required.
+Arrowshot is a lightweight macOS screenshot tool for pointing things out. Capture part of the screen, drop in a bold arrow or a label, and drag the result straight into a chat, an email, or a document. Inspired by the feel of Skitch.
 
-![The PictoJot editor demonstrating arrows, shapes, text, pixelation, and cropping](docs/images/pictojot-overview.png)
+Everything runs locally on your Mac. No account, no cloud, no network access.
 
-## Requirements
-
-- macOS 14 or later
-- Apple Silicon or Intel Mac (Universal Binary)
-- Screen Recording permission for screenshot capture
+> **Note:** The interface is currently in Japanese only. English localization is planned.
 
 ## Features
 
-- Menu-bar residency, with the Dock icon and application menus shown while the editor is open
-- An optional launch-at-login setting offered on first launch
-- Rectangle and window capture across multiple displays
-- Optional five-second timer after selecting a rectangle
-- Drag and drop for common image formats
-- Arrows, text, rectangles, ellipses, and lines
-- Move, resize, and rotate annotations where applicable
-- Annotation color and line-width controls
-- Pixelation and cropping
-- Undo and redo
-- PNG export and clipboard copy
+- **Skitch-style arrows** — a tapered shaft with a soft drop shadow, tuned to read clearly at a glance
+- **Bold labels** — red text with a white outline and shadow, readable on any background
+- **Rectangles, ellipses (optionally filled), lines, pixelation, and cropping** — crop can extend beyond the image edge
+- **Drag to export** — drag the finished image from the toolbar straight into another app without saving a file
+- **Global hotkeys** — work from any app, and can be changed in Settings
+- **Retina quality** — captures keep the display's native pixels
+- Zoom (pinch, ⌘+ / ⌘− / ⌘0), Shift to snap lines and arrows to 45°, undo/redo, PNG save, and clipboard copy
 
-Freehand drawing and stamps are intentionally out of scope.
+### Default shortcuts
 
-## Build
+| Action | Shortcut |
+|---|---|
+| Capture a region or window | ⌘⇧2 |
+| Capture with a timer | ⌘⇧1 |
+| Capture the full screen | ⌘⌥⇧3 |
+| Settings | ⌘, |
 
-Generate a locally ad-hoc-signed application bundle:
+In the editor, switch tools with A (arrow), T (text), R (rectangle), O (ellipse), L (line), M (pixelate), C (crop), or 1–7.
+
+## Requirements
+
+- macOS 14 Sonoma or later
+- Apple silicon or Intel Mac (universal binary)
+- Screen Recording permission
+
+## Install
+
+1. Download the latest `Arrowshot-x.y.z.zip` from [Releases](../../releases) and unzip it.
+2. Move `Arrowshot.app` to your Applications folder.
+3. The app is not notarized by Apple, so macOS will block the first launch. Open it once, then go to **System Settings → Privacy & Security** and click **Open Anyway**.
+4. Press ⌘⇧2 and allow Screen Recording when asked. Quit and reopen Arrowshot once after granting it.
+
+## Build from source
+
+Requires Xcode.
 
 ```sh
 Scripts/build-app.sh release
-open .build/PictoJot.app
+open .build/Arrowshot.app
 ```
 
-For a debug build:
+macOS ties the Screen Recording permission to the app's code signature, so an ad-hoc build asks again after every rebuild. To keep the permission across rebuilds, create a stable self-signed certificate once:
 
 ```sh
-Scripts/build-app.sh debug
+Scripts/setup-signing.sh
 ```
 
-You can override the development bundle identifier without changing tracked files:
+This creates a certificate named "Arrowshot Local Signing" in your login keychain, then builds, signs, and installs the app to `/Applications`.
 
-```sh
-PICTOJOT_BUNDLE_IDENTIFIER=org.example.PictoJot Scripts/build-app.sh release
-```
-
-For development with a complete Xcode installation, open `Package.swift` in Xcode or run:
+Run the tests:
 
 ```sh
 swift test
-```
-
-The fallback core-logic test used by environments without XCTest is:
-
-```sh
 Scripts/run-core-tests.sh
 ```
 
-## Installer package
+To build an installer package, run `Scripts/build-pkg.sh release`.
 
-Create a local test installer that places PictoJot in `/Applications` and launches it after installation:
+## Privacy
 
-```sh
-Scripts/build-pkg.sh release
-open .build/PictoJot-0.1.3.pkg
-```
+Arrowshot has no analytics, accounts, updater, or network code. Captures stay in memory until you save or copy them. See [PRIVACY.md](PRIVACY.md).
 
-The default package and app use local test signatures. For public distribution, provide Developer ID Application and Installer identities:
+## Credits
 
-```sh
-PICTOJOT_APP_SIGN_IDENTITY="Developer ID Application: Example (TEAMID)" \
-PICTOJOT_INSTALLER_SIGN_IDENTITY="Developer ID Installer: Example (TEAMID)" \
-Scripts/build-pkg.sh release
-```
-
-Public packages must also be notarized and stapled before release.
-
-## Usage
-
-1. Launch the app and select a capture command from its menu-bar icon.
-2. Drag to select a rectangle, or click a window.
-3. Choose an annotation tool from the left sidebar and drag on the image.
-4. Hover over an existing annotation and click it to move or transform it.
-5. Copy the result to the clipboard or save it as a PNG.
-
-The timed mode waits five seconds only after rectangle selection. Press Escape or right-click to cancel selection.
-
-## Privacy and security
-
-The app has no analytics, account system, updater, or network code. Captures remain in memory until you explicitly save or copy them. See [PRIVACY.md](PRIVACY.md) and [SECURITY.md](SECURITY.md).
-
-## Contributing
-
-Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
+Arrowshot is based on [PictoJot](https://github.com/sikkimtemi/PictoJot) by sikkimtemi, released under the MIT License. Thank you for the solid foundation.
 
 ## License
 
-Source code is available under the [MIT License](LICENSE).
+[MIT License](LICENSE)

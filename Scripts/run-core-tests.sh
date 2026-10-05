@@ -15,16 +15,16 @@ CLANG_MODULE_CACHE_PATH="$module_cache" swiftc \
     -parse-as-library \
     -target "$architecture-apple-macosx14.0" \
     -module-cache-path "$module_cache" \
-    Sources/PictoJot/Support/Geometry.swift \
-    Sources/PictoJot/Support/ImageExtensions.swift \
-    Sources/PictoJot/Support/PixelExactImageRenderer.swift \
-    Sources/PictoJot/Support/PictoJotStyle.swift \
-    Sources/PictoJot/Support/EditorCursors.swift \
-    Sources/PictoJot/Support/ArrowGeometry.swift \
-    Sources/PictoJot/Editor/Annotation.swift \
-    Sources/PictoJot/Capture/ScreenCoordinates.swift \
-    Sources/PictoJot/Capture/CaptureOutputSizing.swift \
-    Sources/PictoJot/Capture/OverlayWindowGeometry.swift \
+    Sources/Arrowshot/Support/Geometry.swift \
+    Sources/Arrowshot/Support/ImageExtensions.swift \
+    Sources/Arrowshot/Support/PixelExactImageRenderer.swift \
+    Sources/Arrowshot/Support/ArrowshotStyle.swift \
+    Sources/Arrowshot/Support/EditorCursors.swift \
+    Sources/Arrowshot/Support/ArrowGeometry.swift \
+    Sources/Arrowshot/Editor/Annotation.swift \
+    Sources/Arrowshot/Capture/ScreenCoordinates.swift \
+    Sources/Arrowshot/Capture/CaptureOutputSizing.swift \
+    Sources/Arrowshot/Capture/OverlayWindowGeometry.swift \
     Tests/CoreLogicSmokeTests.swift \
     -framework AppKit \
     -framework CoreImage \

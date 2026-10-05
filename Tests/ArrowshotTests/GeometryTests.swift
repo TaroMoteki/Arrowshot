@@ -1,6 +1,6 @@
 import CoreGraphics
 import XCTest
-@testable import PictoJot
+@testable import Arrowshot
 
 final class GeometryTests: XCTestCase {
     func testRotatedRectangleResizeKeepsOppositeCornerFixed() {

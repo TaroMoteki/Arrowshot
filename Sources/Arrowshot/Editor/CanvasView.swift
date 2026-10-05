@@ -52,7 +52,7 @@ private final class InlineInputTextView: NSTextView {
 
 private final class InlineTextEditor: NSView {
     let textView = InlineInputTextView(frame: .zero)
-    var guideColor: NSColor = PictoJotStyle.selectionHandleColor
+    var guideColor: NSColor = ArrowshotStyle.selectionHandleColor
 
     override var isFlipped: Bool { true }
 
@@ -90,8 +90,8 @@ private final class InlineTextEditor: NSView {
         if let font = textView.font {
             let attributes: [NSAttributedString.Key: Any] = [
                 .font: font,
-                .strokeColor: PictoJotStyle.textOutlineColor,
-                .strokeWidth: PictoJotStyle.textOutlineWidth
+                .strokeColor: ArrowshotStyle.textOutlineColor,
+                .strokeWidth: ArrowshotStyle.textOutlineWidth
             ]
             let lineHeight = ceil(font.ascender - font.descender + font.leading)
             for (lineIndex, line) in textView.string.components(separatedBy: "\n").enumerated() {
@@ -126,7 +126,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
             window?.invalidateCursorRects(for: self)
         }
     }
-    var currentColor: NSColor = PictoJotStyle.defaultAnnotationColor
+    var currentColor: NSColor = ArrowshotStyle.defaultAnnotationColor
     var currentLineWidth: CGFloat = 6
     /// When true, new rectangles/ellipses are filled instead of outlined.
     var currentFilled = false
@@ -696,10 +696,10 @@ final class CanvasView: NSView, NSTextViewDelegate {
     /// scale so display and export match.
     private func withArrowShadow(scale: CGFloat, _ body: () -> Void) {
         withShadow(
-            color: PictoJotStyle.arrowShadowColor,
-            offsetDown: PictoJotStyle.arrowShadowOffset.height * scale,
-            offsetRight: PictoJotStyle.arrowShadowOffset.width * scale,
-            blurRadius: PictoJotStyle.arrowShadowBlurRadius * scale,
+            color: ArrowshotStyle.arrowShadowColor,
+            offsetDown: ArrowshotStyle.arrowShadowOffset.height * scale,
+            offsetRight: ArrowshotStyle.arrowShadowOffset.width * scale,
+            blurRadius: ArrowshotStyle.arrowShadowBlurRadius * scale,
             body
         )
     }
@@ -709,10 +709,10 @@ final class CanvasView: NSView, NSTextViewDelegate {
     /// the render scale.
     private func withTextShadow(fontSize: CGFloat, _ body: () -> Void) {
         withShadow(
-            color: PictoJotStyle.textShadowColor,
-            offsetDown: fontSize * PictoJotStyle.textShadowOffsetRatio,
+            color: ArrowshotStyle.textShadowColor,
+            offsetDown: fontSize * ArrowshotStyle.textShadowOffsetRatio,
             offsetRight: 0,
-            blurRadius: fontSize * PictoJotStyle.textShadowBlurRatio,
+            blurRadius: fontSize * ArrowshotStyle.textShadowBlurRatio,
             body
         )
     }
@@ -796,7 +796,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
     private func drawEndpointHandle(at point: CGPoint) {
         let handleRect = CGRect(x: point.x - 6, y: point.y - 6, width: 12, height: 12)
         NSColor.white.setStroke()
-        PictoJotStyle.selectionHandleColor.setFill()
+        ArrowshotStyle.selectionHandleColor.setFill()
         let handle = NSBezierPath(ovalIn: handleRect)
         handle.lineWidth = 1.5
         handle.fill()
@@ -816,7 +816,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
             ? NSBezierPath(ovalIn: mappedRect)
             : NSBezierPath(rect: mappedRect)
         outline.lineWidth = 1.5
-        PictoJotStyle.selectionHandleColor.setStroke()
+        ArrowshotStyle.selectionHandleColor.setStroke()
         outline.stroke()
         NSGraphicsContext.restoreGraphicsState()
 
@@ -831,7 +831,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         let mappedRect = map(annotation.rect, into: targetRect, scale: imageScale)
         let outline = NSBezierPath(rect: mappedRect)
         outline.lineWidth = 1.5
-        PictoJotStyle.selectionHandleColor.setStroke()
+        ArrowshotStyle.selectionHandleColor.setStroke()
         outline.stroke()
         drawEndpointHandle(at: CGPoint(x: mappedRect.maxX, y: mappedRect.maxY))
     }
@@ -1189,7 +1189,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         let attributes = textDrawingAttributes(font: font, color: session.color)
         editor.textView.font = font
         editor.textView.textColor = session.color
-        editor.textView.insertionPointColor = PictoJotStyle.selectionHandleColor
+        editor.textView.insertionPointColor = ArrowshotStyle.selectionHandleColor
         editor.textView.typingAttributes = attributes
         editor.textView.inputDidUpdate = { [weak self, weak editor] in
             guard let self, self.inlineTextEditor === editor else { return }
@@ -1734,8 +1734,8 @@ final class CanvasView: NSView, NSTextViewDelegate {
     private func textOutlineDrawingAttributes(font: NSFont) -> [NSAttributedString.Key: Any] {
         [
             .font: font,
-            .strokeColor: PictoJotStyle.textOutlineColor,
-            .strokeWidth: PictoJotStyle.textOutlineWidth
+            .strokeColor: ArrowshotStyle.textOutlineColor,
+            .strokeWidth: ArrowshotStyle.textOutlineWidth
         ]
     }
 
@@ -1778,7 +1778,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         let filter = CIFilter.pixellate()
         filter.inputImage = CIImage(cgImage: cgImage)
         // Block size in points, kept constant regardless of backing scale.
-        filter.scale = Float(PictoJotStyle.mosaicBlockSize * basePixelScale)
+        filter.scale = Float(ArrowshotStyle.mosaicBlockSize * basePixelScale)
         guard let output = filter.outputImage,
               let rendered = CIContext(options: [.useSoftwareRenderer: false]).createCGImage(output, from: output.extent) else { return nil }
         let result = NSImage(cgImage: rendered, size: baseImage.size)

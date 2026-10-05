@@ -176,7 +176,7 @@ final class CaptureCoordinator {
         let alert = NSAlert()
         alert.alertStyle = .warning
         alert.messageText = "画面収録の許可が必要です"
-        alert.informativeText = "システム設定の「プライバシーとセキュリティ」→「画面収録」でCaptureを許可し、アプリを再起動してください。"
+        alert.informativeText = "システム設定の「プライバシーとセキュリティ」→「画面収録」でArrowshotを許可し、アプリを再起動してください。"
         alert.addButton(withTitle: "システム設定を開く")
         alert.addButton(withTitle: "キャンセル")
         if alert.runModal() == .alertFirstButtonReturn,

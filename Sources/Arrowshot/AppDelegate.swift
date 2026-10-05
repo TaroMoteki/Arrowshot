@@ -120,7 +120,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return true
     }
 
-    /// A monochrome (template) menu-bar icon matching the Capture app icon's
+    /// A monochrome (template) menu-bar icon matching the Arrowshot app icon's
     /// viewfinder motif: four corner marks framing a center crosshair.
     private static func statusBarIcon() -> NSImage {
         let size = NSSize(width: 18, height: 18)
@@ -170,7 +170,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusItem.button {
             button.image = AppDelegate.statusBarIcon()
-            button.toolTip = "Capture"
+            button.toolTip = "Arrowshot"
         }
 
         let menu = NSMenu()
@@ -214,7 +214,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         fullScreenCaptureItem.target = self
 
         let showItem = NSMenuItem(
-            title: "Captureを表示",
+            title: "Arrowshotを表示",
             action: #selector(showEditor),
             keyEquivalent: ""
         )
@@ -228,7 +228,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settingsItem.keyEquivalentModifierMask = [.command]
         settingsItem.target = self
 
-        let quitItem = NSMenuItem(title: "Captureを終了", action: #selector(quit), keyEquivalent: "q")
+        let quitItem = NSMenuItem(title: "Arrowshotを終了", action: #selector(quit), keyEquivalent: "q")
         quitItem.target = self
 
         menu.addItem(immediateCaptureItem)
@@ -247,10 +247,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func configureMainMenu() {
         let mainMenu = NSMenu()
 
-        let applicationItem = NSMenuItem(title: "Capture", action: nil, keyEquivalent: "")
-        let applicationMenu = NSMenu(title: "Capture")
+        let applicationItem = NSMenuItem(title: "Arrowshot", action: nil, keyEquivalent: "")
+        let applicationMenu = NSMenu(title: "Arrowshot")
         let aboutItem = NSMenuItem(
-            title: "Captureについて",
+            title: "Arrowshotについて",
             action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
             keyEquivalent: ""
         )
@@ -268,13 +268,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         applicationMenu.addItem(settingsItem)
         applicationMenu.addItem(.separator())
 
-        let hideItem = NSMenuItem(title: "Captureを隠す", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        let hideItem = NSMenuItem(title: "Arrowshotを隠す", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         hideItem.target = NSApp
         applicationMenu.addItem(hideItem)
 
         applicationMenu.addItem(.separator())
 
-        let quitItem = NSMenuItem(title: "Captureを終了", action: #selector(quit), keyEquivalent: "q")
+        let quitItem = NSMenuItem(title: "Arrowshotを終了", action: #selector(quit), keyEquivalent: "q")
         quitItem.target = self
         applicationMenu.addItem(quitItem)
         applicationItem.submenu = applicationMenu
@@ -419,7 +419,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func promptForLaunchAtLoginIfNeeded() {
         let bundleURL = Bundle.main.bundleURL.standardizedFileURL
-        guard bundleURL.path == "/Applications/Capture.app" else { return }
+        guard bundleURL.path == "/Applications/Arrowshot.app" else { return }
 
         let defaults = UserDefaults.standard
         let promptKey = "didPromptForLaunchAtLogin"
@@ -436,8 +436,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let alert = NSAlert()
         alert.alertStyle = .informational
-        alert.messageText = "ログイン時にCaptureを開きますか？"
-        alert.informativeText = "有効にすると、Macへのログイン時にCaptureが自動的に起動してメニューバーに常駐します。"
+        alert.messageText = "ログイン時にArrowshotを開きますか？"
+        alert.informativeText = "有効にすると、Macへのログイン時にArrowshotが自動的に起動してメニューバーに常駐します。"
         alert.addButton(withTitle: "自動起動を有効にする")
         alert.addButton(withTitle: "今はしない")
 
@@ -462,7 +462,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let alert = NSAlert()
         alert.alertStyle = .informational
         alert.messageText = "ログイン項目の許可が必要です"
-        alert.informativeText = "システム設定の「一般」>「ログイン項目」でCaptureを許可してください。"
+        alert.informativeText = "システム設定の「一般」>「ログイン項目」でArrowshotを許可してください。"
         alert.addButton(withTitle: "OK")
         alert.runModal()
     }

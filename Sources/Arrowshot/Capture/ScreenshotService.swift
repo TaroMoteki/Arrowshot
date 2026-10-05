@@ -79,7 +79,7 @@ struct ScreenshotService {
             throw ScreenshotServiceError.windowNotFound
         }
 
-        // The selection overlay temporarily activates PictoJot. Restore the selected
+        // The selection overlay temporarily activates Arrowshot. Restore the selected
         // application's active appearance before taking the actual screenshot.
         if let processID = targetWindow.owningApplication?.processID,
            let application = NSRunningApplication(processIdentifier: processID),

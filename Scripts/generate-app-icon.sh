@@ -4,11 +4,11 @@ set -euo pipefail
 
 repository_root="${0:A:h:h}"
 build_directory="$repository_root/.build"
-iconset_directory="$build_directory/PictoJot.iconset"
-tiff_directory="$build_directory/PictoJotIconTIFFs"
-generator_binary="$build_directory/PictoJotIconGenerator"
+iconset_directory="$build_directory/Arrowshot.iconset"
+tiff_directory="$build_directory/ArrowshotIconTIFFs"
+generator_binary="$build_directory/ArrowshotIconGenerator"
 module_cache="$build_directory/ModuleCache"
-output_icon="$repository_root/Resources/PictoJot.icns"
+output_icon="$repository_root/Resources/Arrowshot.icns"
 architecture="$(uname -m)"
 
 mkdir -p "$build_directory" "$module_cache"
@@ -45,6 +45,6 @@ for icon_file in $icon_files; do
         --out "$tiff_directory/${icon_file:r}.tiff" >/dev/null
 done
 
-tiffutil -cat "$tiff_directory"/*.tiff -out "$tiff_directory/PictoJot.tiff" >/dev/null 2>&1
-tiff2icns "$tiff_directory/PictoJot.tiff" "$output_icon"
+tiffutil -cat "$tiff_directory"/*.tiff -out "$tiff_directory/Arrowshot.tiff" >/dev/null 2>&1
+tiff2icns "$tiff_directory/Arrowshot.tiff" "$output_icon"
 print "$output_icon"

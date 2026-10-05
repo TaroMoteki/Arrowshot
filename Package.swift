@@ -3,17 +3,17 @@
 import PackageDescription
 
 let package = Package(
-    name: "PictoJot",
+    name: "Arrowshot",
     platforms: [
         .macOS(.v14)
     ],
     products: [
-        .executable(name: "PictoJot", targets: ["PictoJot"])
+        .executable(name: "Arrowshot", targets: ["Arrowshot"])
     ],
     targets: [
         .executableTarget(
-            name: "PictoJot",
-            path: "Sources/PictoJot",
+            name: "Arrowshot",
+            path: "Sources/Arrowshot",
             linkerSettings: [
                 .linkedFramework("AppKit"),
                 .linkedFramework("CoreImage"),
@@ -22,9 +22,9 @@ let package = Package(
             ]
         ),
         .testTarget(
-            name: "PictoJotTests",
-            dependencies: ["PictoJot"],
-            path: "Tests/PictoJotTests"
+            name: "ArrowshotTests",
+            dependencies: ["Arrowshot"],
+            path: "Tests/ArrowshotTests"
         )
     ]
 )

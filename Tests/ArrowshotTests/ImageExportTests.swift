@@ -1,6 +1,6 @@
 import AppKit
 import XCTest
-@testable import PictoJot
+@testable import Arrowshot
 
 final class ImageExportTests: XCTestCase {
     func testRenderedPNGUsesLogicalImageDimensionsOnRetinaDisplays() throws {

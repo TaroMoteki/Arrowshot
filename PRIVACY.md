@@ -1,12 +1,12 @@
 # Privacy
 
-PictoJot processes screenshots and imported images locally on the Mac.
+Arrowshot processes screenshots and imported images locally on your Mac.
 
-- The app does not contain analytics, advertising, telemetry, account, cloud-sync, update-checking, or network code.
-- Screen Recording permission is requested only to capture the display area or window selected by the user.
-- Images remain in memory unless the user saves them to a chosen file or copies them to the system clipboard.
-- The app does not retain a capture history or upload image content.
+- The app contains no analytics, advertising, telemetry, accounts, cloud sync, update checks, or network code.
+- Screen Recording permission is used only to capture the area, window, or screen you choose.
+- Images stay in memory until you save them to a file, copy them to the clipboard, or drag them into another app.
+- When you drag an image out of the editor, Arrowshot writes a temporary PNG to the system temporary folder so the receiving app can read it.
+- The app keeps no capture history and never uploads image content.
+- Preferences such as hotkeys and the save location are stored in the app's local macOS preferences.
 
-Files and clipboard contents are subject to the access and retention behavior of macOS and any other apps selected by the user.
-
-This statement describes version 0.1.3 as audited on 2026-08-25. It should be reviewed whenever networking, crash reporting, analytics, automatic updates, or persistent history are added.
+Files, clipboard contents, and dragged images are then subject to macOS and to whichever apps you choose to share them with.

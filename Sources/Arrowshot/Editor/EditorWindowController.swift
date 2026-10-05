@@ -114,7 +114,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
             backing: .buffered,
             defer: false
         )
-        window.title = "Capture"
+        window.title = "Arrowshot"
         window.minSize = CGSize(width: 820, height: 520)
         window.center()
         super.init(window: window)
@@ -205,7 +205,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
             statusLabel.centerYAnchor.constraint(equalTo: footer.centerYAnchor)
         ])
 
-        colorWell.color = PictoJotStyle.defaultAnnotationColor
+        colorWell.color = ArrowshotStyle.defaultAnnotationColor
         colorWell.isBordered = false
         colorWell.target = self
         colorWell.action = #selector(colorChanged(_:))
@@ -471,7 +471,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
             button.heightAnchor.constraint(equalToConstant: 30)
         ])
         button.imageProvider = { [weak self] in self?.canvasView.renderedImage() }
-        button.fileNameProvider = { [weak self] in self?.suggestedFileName() ?? "Capture.png" }
+        button.fileNameProvider = { [weak self] in self?.suggestedFileName() ?? "Arrowshot.png" }
         // Get the editor out of the way once the drag has moved a little, so it
         // does not cover the drop target. Dropped → stay hidden (reopen from the
         // Dock/menu, edits kept); cancelled → bring it back.
@@ -713,7 +713,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
     private func updateWindowTitle() {
         let source = currentSourceName.map { " — \($0)" } ?? ""
         let dirtyMark = isDirty ? " ●" : ""
-        window?.title = "Capture\(source)\(dirtyMark)"
+        window?.title = "Arrowshot\(source)\(dirtyMark)"
     }
 
     private func updateStatus(message: String? = nil) {
@@ -739,7 +739,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
     private func suggestedFileName() -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd HH.mm.ss"
-        return "Capture \(formatter.string(from: Date())).png"
+        return "Arrowshot \(formatter.string(from: Date())).png"
     }
 
     private func showError(title: String, message: String) {

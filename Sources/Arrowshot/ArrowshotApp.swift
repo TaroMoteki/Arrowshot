@@ -2,7 +2,7 @@ import AppKit
 
 @main
 @MainActor
-struct PictoJotApp {
+struct ArrowshotApp {
     static func main() {
         let application = NSApplication.shared
         let delegate = AppDelegate()

@@ -27,12 +27,12 @@ jobs:
 
       - name: Validate application bundle
         run: |
-          plutil -lint .build/PictoJot.app/Contents/Info.plist
-          test -f .build/PictoJot.app/Contents/Resources/PictoJot.icns
-          codesign --verify --deep --strict .build/PictoJot.app
+          plutil -lint .build/Arrowshot.app/Contents/Info.plist
+          test -f .build/Arrowshot.app/Contents/Resources/Arrowshot.icns
+          codesign --verify --deep --strict .build/Arrowshot.app
 
       - name: Build and inspect installer package
         run: |
           Scripts/build-pkg.sh release
           version="$(plutil -extract CFBundleShortVersionString raw Resources/Info.plist)"
-          pkgutil --payload-files ".build/PictoJot-$version.pkg" | grep -q 'PictoJot.app/Contents/MacOS/PictoJot'
+          pkgutil --payload-files ".build/Arrowshot-$version.pkg" | grep -q 'Arrowshot.app/Contents/MacOS/Arrowshot'

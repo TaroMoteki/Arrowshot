@@ -5,23 +5,23 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>ja</string>
 	<key>CFBundleDisplayName</key>
-	<string>Capture</string>
+	<string>Arrowshot</string>
 	<key>CFBundleExecutable</key>
-	<string>PictoJot</string>
+	<string>Arrowshot</string>
 	<key>CFBundleIconFile</key>
-	<string>PictoJot.icns</string>
+	<string>Arrowshot.icns</string>
 	<key>CFBundleIdentifier</key>
-	<string>io.github.sikkimtemi.PictoJot</string>
+	<string>io.github.taromoteki.Arrowshot</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Capture</string>
+	<string>Arrowshot</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.1.3</string>
+	<string>0.2.0</string>
 	<key>CFBundleVersion</key>
-	<string>4</string>
+	<string>5</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.graphics-design</string>
 	<key>LSMinimumSystemVersion</key>
@@ -29,7 +29,7 @@
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright © 2026</string>
+	<string>Copyright © 2026 Taro Moteki. Based on PictoJot.</string>
 	<key>NSScreenCaptureUsageDescription</key>
 	<string>選択した画面領域またはウインドウを画像として取り込むために使用します。</string>
 </dict>

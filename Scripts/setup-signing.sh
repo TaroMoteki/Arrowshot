@@ -1,15 +1,15 @@
 #!/bin/zsh
 #
 # 一度だけ実行するセットアップ。
-# 固定の自己署名証明書を作り、それでCaptureに署名してインストールする。
+# 固定の自己署名証明書を作り、それでArrowshotに署名してインストールする。
 # 以後は再ビルドしても画面収録などの許可を取り直す必要がなくなる。
 #
 set -euo pipefail
 
-NAME="Capture Local Signing"
+NAME="Arrowshot Local Signing"
 repository_root="${0:A:h:h}"
-app_source="$repository_root/.build/Capture.app"
-app_destination="/Applications/Capture.app"
+app_source="$repository_root/.build/Arrowshot.app"
+app_destination="/Applications/Arrowshot.app"
 
 if security find-identity -v -p codesigning 2>/dev/null | grep -q "$NAME"; then
     echo "▶ 署名証明書「$NAME」は既にあります。作成をスキップします。"
@@ -39,9 +39,9 @@ EOF
     echo "  作成しました。"
 fi
 
-echo "▶ Captureをビルドして署名します…"
+echo "▶ Arrowshotをビルドして署名します…"
 echo "  （初回は『codesignがキーを使用しようとしています』と出たら【常に許可】を押してください）"
-PICTOJOT_APP_SIGN_IDENTITY="$NAME" "$repository_root/Scripts/build-app.sh" release >/dev/null
+ARROWSHOT_APP_SIGN_IDENTITY="$NAME" "$repository_root/Scripts/build-app.sh" release >/dev/null
 
 echo "▶ /Applications にインストールします…"
 rm -rf "$app_destination"
@@ -50,11 +50,11 @@ xattr -cr "$app_destination"
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$app_destination"
 
 echo "▶ 画面収録の許可をリセットします（次の1回で確定）…"
-tccutil reset ScreenCapture io.github.sikkimtemi.PictoJot >/dev/null 2>&1 || true
+tccutil reset ScreenCapture io.github.taromoteki.Arrowshot >/dev/null 2>&1 || true
 
 open "$app_destination"
 echo ""
 echo "✅ 完了しました。"
 echo "   1) ⌘⇧2 を押す → 画面収録を許可"
-echo "   2) Captureを一度終了して再起動"
+echo "   2) Arrowshotを一度終了して再起動"
 echo "   これ以降は、アプリを更新しても再許可は不要です。"

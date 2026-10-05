@@ -28,12 +28,12 @@ final class DragExportButton: NSButton, NSDraggingSource {
             NSSound.beep()
             return
         }
-        let fileName = fileNameProvider?() ?? "Capture.png"
+        let fileName = fileNameProvider?() ?? "Arrowshot.png"
 
         // Write a real temporary file so file-based drop targets get an actual
         // file without the user having to save first.
         let directory = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
-            .appendingPathComponent("CaptureDrags", isDirectory: true)
+            .appendingPathComponent("ArrowshotDrags", isDirectory: true)
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let fileURL = directory.appendingPathComponent(fileName)
         do {

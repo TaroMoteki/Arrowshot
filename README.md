@@ -6,6 +6,8 @@ Arrowshot is a lightweight macOS screenshot tool for pointing things out. Captur
 
 Everything runs locally on your Mac. No account, no cloud, no network access.
 
+![The Arrowshot editor with arrows, labels, a filled box, and the crop, copy, save, and drag-to-export controls highlighted](docs/images/arrowshot-overview.png)
+
 > **Note:** The interface is currently in Japanese only. English localization is planned.
 
 ## Features

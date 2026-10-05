@@ -4,6 +4,7 @@ import CoreGraphics
 enum CaptureMode {
     case immediate
     case timer
+    case fullScreen
 }
 
 @MainActor
@@ -16,6 +17,7 @@ final class CaptureCoordinator {
     private var captureTask: Task<Void, Never>?
     private var foregroundApplicationBeforeCapture: NSRunningApplication?
     private var shouldRestoreEditor = false
+    private var pendingTimerSeconds = 5
     private(set) var isBusy = false {
         didSet { onBusyChanged?(isBusy) }
     }
@@ -24,17 +26,27 @@ final class CaptureCoordinator {
         self.editorWindowController = editorWindowController
     }
 
-    func start(_ mode: CaptureMode) {
+    func start(_ mode: CaptureMode, timerSeconds: Int = 5) {
         guard !isBusy else {
             NSSound.beep()
             return
         }
         guard ensureScreenCapturePermission() else { return }
 
+        pendingTimerSeconds = timerSeconds
         isBusy = true
         foregroundApplicationBeforeCapture = NSWorkspace.shared.frontmostApplication
         shouldRestoreEditor = editorWindowController?.window?.isVisible == true
         editorWindowController?.hideEditor()
+
+        if mode == .fullScreen {
+            foregroundApplicationBeforeCapture = nil
+            captureTask = Task { [weak self] in
+                await self?.captureFullScreen()
+            }
+            return
+        }
+
         let selectionController = SelectionOverlayController()
         self.selectionController = selectionController
         selectionController.begin { [weak self] selection in
@@ -105,11 +117,39 @@ final class CaptureCoordinator {
         }
     }
 
+    private func captureFullScreen() async {
+        do {
+            // Let the editor finish hiding before capturing.
+            try await Task.sleep(for: .milliseconds(120))
+            try Task.checkCancellation()
+            let image = try await screenshotService.captureDisplay(displayID: currentDisplayID())
+            shouldRestoreEditor = false
+            editorWindowController?.presentCapturedImage(image)
+        } catch is CancellationError {
+            // The user cancelled the current capture.
+        } catch {
+            showCaptureError(error)
+            restoreEditorIfNeeded()
+        }
+        captureTask = nil
+        isBusy = false
+    }
+
+    /// The display currently under the mouse (falls back to the main display).
+    private func currentDisplayID() -> CGDirectDisplayID {
+        let mouse = NSEvent.mouseLocation
+        let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main
+        if let number = screen?.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber {
+            return CGDirectDisplayID(number.uint32Value)
+        }
+        return CGMainDisplayID()
+    }
+
     private func captureRectangle(_ rect: CGRect, displayID: CGDirectDisplayID, useTimer: Bool) async {
         do {
             if useTimer {
                 let countdown = CountdownPresenter()
-                try await countdown.run(centeredOn: rect)
+                try await countdown.run(centeredOn: rect, seconds: pendingTimerSeconds)
             }
             try Task.checkCancellation()
             let image = try await screenshotService.captureRectangle(rect, displayID: displayID)
@@ -136,7 +176,7 @@ final class CaptureCoordinator {
         let alert = NSAlert()
         alert.alertStyle = .warning
         alert.messageText = "画面収録の許可が必要です"
-        alert.informativeText = "システム設定の「プライバシーとセキュリティ」→「画面収録」でPictoJotを許可し、アプリを再起動してください。"
+        alert.informativeText = "システム設定の「プライバシーとセキュリティ」→「画面収録」でCaptureを許可し、アプリを再起動してください。"
         alert.addButton(withTitle: "システム設定を開く")
         alert.addButton(withTitle: "キャンセル")
         if alert.runModal() == .alertFirstButtonReturn,

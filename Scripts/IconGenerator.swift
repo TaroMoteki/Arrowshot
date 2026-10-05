@@ -67,62 +67,52 @@ private enum IconGenerator {
         NSColor.clear.setFill()
         NSRect(x: 0, y: 0, width: size, height: size).fill()
 
+        // Rounded-square (squircle) background, macOS Big Sur style, filling
+        // most of the canvas with a small margin.
         let tileRect = NSRect(
-            x: size * 0.065,
-            y: size * 0.075,
-            width: size * 0.87,
-            height: size * 0.87
+            x: size * 0.085,
+            y: size * 0.085,
+            width: size * 0.83,
+            height: size * 0.83
         )
         let tilePath = NSBezierPath(
             roundedRect: tileRect,
-            xRadius: size * 0.20,
-            yRadius: size * 0.20
+            xRadius: size * 0.2237,
+            yRadius: size * 0.2237
         )
 
         let shadow = NSShadow()
         shadow.shadowColor = NSColor(calibratedWhite: 0.0, alpha: 0.28)
-        shadow.shadowBlurRadius = max(1.0, size * 0.035)
-        shadow.shadowOffset = NSSize(width: 0, height: -size * 0.025)
+        shadow.shadowBlurRadius = max(1.0, size * 0.03)
+        shadow.shadowOffset = NSSize(width: 0, height: -size * 0.02)
         shadow.set()
-        NSColor(calibratedWhite: 0.68, alpha: 1.0).setFill()
+        NSColor(srgbRed: 0.85, green: 0.11, blue: 0.38, alpha: 1.0).setFill()
         tilePath.fill()
 
+        // Pink gradient fill (brighter at the top).
         NSGraphicsContext.saveGraphicsState()
         tilePath.addClip()
-        let tileGradient = NSGradient(
-            starting: NSColor(calibratedWhite: 0.96, alpha: 1.0),
-            ending: NSColor(calibratedWhite: 0.77, alpha: 1.0)
-        )
-        tileGradient?.draw(in: tileRect, angle: 90)
-        NSGraphicsContext.restoreGraphicsState()
-
-        NSGraphicsContext.saveGraphicsState()
-        let circleRect = NSRect(
-            x: size * 0.195,
-            y: size * 0.205,
-            width: size * 0.61,
-            height: size * 0.61
-        )
-        let circlePath = NSBezierPath(ovalIn: circleRect)
-        let circleShadow = NSShadow()
-        circleShadow.shadowColor = NSColor(calibratedWhite: 0.0, alpha: 0.20)
-        circleShadow.shadowBlurRadius = max(0.5, size * 0.018)
-        circleShadow.shadowOffset = NSSize(width: 0, height: -size * 0.012)
-        circleShadow.set()
-        NSColor(calibratedRed: 1.0, green: 0.22, blue: 0.43, alpha: 1.0).setFill()
-        circlePath.fill()
-        NSGraphicsContext.restoreGraphicsState()
-
-        NSGraphicsContext.saveGraphicsState()
-        circlePath.addClip()
         let pinkGradient = NSGradient(
-            starting: NSColor(calibratedRed: 1.0, green: 0.35, blue: 0.55, alpha: 1.0),
-            ending: NSColor(calibratedRed: 0.88, green: 0.08, blue: 0.31, alpha: 1.0)
+            starting: NSColor(srgbRed: 0.847, green: 0.106, blue: 0.376, alpha: 1.0), // bottom
+            ending: NSColor(srgbRed: 1.0, green: 0.435, blue: 0.631, alpha: 1.0)       // top
         )
-        pinkGradient?.draw(in: circleRect, angle: 90)
+        pinkGradient?.draw(in: tileRect, angle: 90)
+
+        // Subtle glossy highlight across the top half.
+        let glossRect = NSRect(
+            x: tileRect.minX,
+            y: tileRect.midY,
+            width: tileRect.width,
+            height: tileRect.height / 2
+        )
+        let gloss = NSGradient(
+            starting: NSColor(calibratedWhite: 1.0, alpha: 0.20),
+            ending: NSColor(calibratedWhite: 1.0, alpha: 0.0)
+        )
+        gloss?.draw(in: glossRect, angle: -90)
         NSGraphicsContext.restoreGraphicsState()
 
-        drawLetter(in: NSRect(x: 0, y: 0, width: size, height: size), size: size)
+        drawViewfinder(in: NSRect(x: 0, y: 0, width: size, height: size), size: size)
         context.flushGraphics()
         NSGraphicsContext.restoreGraphicsState()
 
@@ -132,24 +122,64 @@ private enum IconGenerator {
         return data
     }
 
-    private static func drawLetter(in canvas: NSRect, size: CGFloat) {
-        let baseFont = NSFont.systemFont(ofSize: size * 0.47, weight: .heavy)
-        let descriptor = baseFont.fontDescriptor.withDesign(.rounded) ?? baseFont.fontDescriptor
-        let font = NSFont(descriptor: descriptor, size: size * 0.47) ?? baseFont
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: font,
-            .foregroundColor: NSColor.white,
-        ]
-        let letter = NSAttributedString(string: "p", attributes: attributes)
-        let bounds = letter.boundingRect(
-            with: NSSize(width: size, height: size),
-            options: [.usesLineFragmentOrigin, .usesFontLeading]
+    /// Draws a white viewfinder: four rounded corner brackets framing a center
+    /// crosshair — the classic "capture / screenshot" motif.
+    private static func drawViewfinder(in canvas: NSRect, size: CGFloat) {
+        let side = size * 0.46
+        let frame = NSRect(
+            x: canvas.midX - side / 2,
+            y: canvas.midY - side / 2,
+            width: side,
+            height: side
         )
-        let origin = NSPoint(
-            x: canvas.midX - bounds.width / 2 - bounds.minX + size * 0.018,
-            y: canvas.midY - bounds.height / 2 - bounds.minY + size * 0.060
-        )
-        letter.draw(at: origin)
+        let arm = side * 0.32
+        let lineWidth = size * 0.062
+
+        // Soft shadow to lift the marks off the pink background.
+        NSGraphicsContext.saveGraphicsState()
+        let markShadow = NSShadow()
+        markShadow.shadowColor = NSColor(calibratedWhite: 0.0, alpha: 0.18)
+        markShadow.shadowBlurRadius = max(0.5, size * 0.02)
+        markShadow.shadowOffset = NSSize(width: 0, height: -size * 0.008)
+        markShadow.set()
+
+        NSColor.white.setStroke()
+
+        let corners = NSBezierPath()
+        corners.lineWidth = lineWidth
+        corners.lineCapStyle = .round
+        corners.lineJoinStyle = .round
+
+        // Top-left
+        corners.move(to: NSPoint(x: frame.minX, y: frame.maxY - arm))
+        corners.line(to: NSPoint(x: frame.minX, y: frame.maxY))
+        corners.line(to: NSPoint(x: frame.minX + arm, y: frame.maxY))
+        // Top-right
+        corners.move(to: NSPoint(x: frame.maxX - arm, y: frame.maxY))
+        corners.line(to: NSPoint(x: frame.maxX, y: frame.maxY))
+        corners.line(to: NSPoint(x: frame.maxX, y: frame.maxY - arm))
+        // Bottom-right
+        corners.move(to: NSPoint(x: frame.maxX, y: frame.minY + arm))
+        corners.line(to: NSPoint(x: frame.maxX, y: frame.minY))
+        corners.line(to: NSPoint(x: frame.maxX - arm, y: frame.minY))
+        // Bottom-left
+        corners.move(to: NSPoint(x: frame.minX + arm, y: frame.minY))
+        corners.line(to: NSPoint(x: frame.minX, y: frame.minY))
+        corners.line(to: NSPoint(x: frame.minX, y: frame.minY + arm))
+        corners.stroke()
+
+        // Center crosshair.
+        let crossHalf = size * 0.075
+        let crosshair = NSBezierPath()
+        crosshair.lineWidth = size * 0.05
+        crosshair.lineCapStyle = .round
+        crosshair.move(to: NSPoint(x: canvas.midX - crossHalf, y: canvas.midY))
+        crosshair.line(to: NSPoint(x: canvas.midX + crossHalf, y: canvas.midY))
+        crosshair.move(to: NSPoint(x: canvas.midX, y: canvas.midY - crossHalf))
+        crosshair.line(to: NSPoint(x: canvas.midX, y: canvas.midY + crossHalf))
+        crosshair.stroke()
+
+        NSGraphicsContext.restoreGraphicsState()
     }
 }
 

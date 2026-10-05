@@ -94,6 +94,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
     private let canvasView = CanvasView(frame: .zero)
     private let colorWell = CircularColorWell(frame: .zero)
     private let widthPopup = NSPopUpButton(frame: .zero, pullsDown: false)
+    private let fillToggle = NSButton()
     private let statusLabel = NSTextField(labelWithString: "画像を開いてください")
     private let cropSizeLabel = NSTextField(labelWithString: "— × —")
     private var editingControls: NSStackView!
@@ -103,6 +104,8 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
     private var lastNonCropTool: EditorTool = .arrow
     private var currentSourceName: String?
     private var isDirty = false
+    private var zoomPercent = 100
+    private var isHiddenForDrag = false
 
     init() {
         let window = EditorWindow(
@@ -111,7 +114,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
             backing: .buffered,
             defer: false
         )
-        window.title = "PictoJot"
+        window.title = "Capture"
         window.minSize = CGSize(width: 820, height: 520)
         window.center()
         super.init(window: window)
@@ -163,6 +166,16 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
         (window as? EditorWindow)?.setArrowCursorRegions([toolbar, sidebar])
         canvasView.translatesAutoresizingMaskIntoConstraints = false
         canvasView.delegate = self
+        canvasView.onZoomChanged = { [weak self] percent in
+            self?.zoomPercent = percent
+            self?.updateStatus()
+        }
+        canvasView.onToolShortcut = { [weak self] tool in
+            self?.activateTool(tool)
+        }
+        canvasView.onCropCommitRequested = { [weak self] in
+            self?.applyCrop()
+        }
 
         let body = NSStackView(views: [sidebar, canvasView])
         body.orientation = .horizontal
@@ -197,7 +210,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
         colorWell.target = self
         colorWell.action = #selector(colorChanged(_:))
 
-        widthPopup.addItems(withTitles: ["2", "4", "6", "10"])
+        widthPopup.addItems(withTitles: ["2", "4", "6", "10", "16", "24"])
         widthPopup.selectItem(at: 2)
         widthPopup.target = self
         widthPopup.action = #selector(widthChanged(_:))
@@ -211,10 +224,11 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
         background.state = .followsWindowActiveState
         background.translatesAutoresizingMaskIntoConstraints = false
 
-        let undoButton = makeIconButton(symbol: "arrow.uturn.backward", toolTip: "取り消す", action: #selector(undoEdit))
-        let redoButton = makeIconButton(symbol: "arrow.uturn.forward", toolTip: "やり直す", action: #selector(redoEdit))
-        let copyButton = makeIconButton(symbol: "doc.on.doc", toolTip: "コピー", action: #selector(copyImage))
-        let saveButton = makeIconButton(symbol: "square.and.arrow.down", toolTip: "保存", action: #selector(saveImage))
+        let undoButton = makeIconButton(symbol: "arrow.uturn.backward", toolTip: "取り消す（⌘Z）", action: #selector(undoEdit))
+        let redoButton = makeIconButton(symbol: "arrow.uturn.forward", toolTip: "やり直す（⌘⇧Z）", action: #selector(redoEdit))
+        let dragButton = makeDragButton()
+        let copyButton = makeIconButton(symbol: "doc.on.doc", toolTip: "コピー（⌘C）", action: #selector(copyImage))
+        let saveButton = makeIconButton(symbol: "square.and.arrow.down", toolTip: "保存（⌘S）／名前を付けて保存（⇧⌘S）", action: #selector(saveImage))
         let cancelCropButton = makeButton(title: "キャンセル", action: #selector(cancelCrop), width: 88)
         let applyCropButton = makeButton(title: "✓ 適用", action: #selector(applyCrop), width: 78)
 
@@ -223,7 +237,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
         editingControls.spacing = 7
         editingControls.alignment = .centerY
 
-        exportControls = NSStackView(views: [copyButton, saveButton])
+        exportControls = NSStackView(views: [dragButton, copyButton, saveButton])
         exportControls.orientation = .horizontal
         exportControls.spacing = 7
         exportControls.alignment = .centerY
@@ -290,7 +304,21 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
             widthPopup.heightAnchor.constraint(equalToConstant: 28)
         ])
 
-        let stack = NSStackView(views: [toolStack, separator, colorWell, widthPopup])
+        fillToggle.setButtonType(.pushOnPushOff)
+        fillToggle.bezelStyle = .texturedRounded
+        fillToggle.imagePosition = .imageOnly
+        fillToggle.image = NSImage(systemSymbolName: "square.fill", accessibilityDescription: "塗りつぶし")?
+            .withSymbolConfiguration(.init(pointSize: 14, weight: .medium))
+        fillToggle.toolTip = "塗りつぶし（四角・楕円）"
+        fillToggle.target = self
+        fillToggle.action = #selector(fillToggled(_:))
+        fillToggle.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            fillToggle.widthAnchor.constraint(equalToConstant: 34),
+            fillToggle.heightAnchor.constraint(equalToConstant: 28)
+        ])
+
+        let stack = NSStackView(views: [toolStack, separator, colorWell, widthPopup, fillToggle])
         stack.orientation = .vertical
         stack.spacing = 9
         stack.alignment = .centerX
@@ -310,7 +338,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
         button.target = self
         button.action = #selector(toolChanged(_:))
         button.tag = tool.rawValue
-        button.toolTip = tool.title
+        button.toolTip = "\(tool.title)（\(tool.shortcutLabel)）"
         button.isBordered = false
         button.focusRingType = .none
         button.setButtonType(.momentaryChange)
@@ -385,6 +413,101 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
         return button
     }
 
+    /// An original template icon: a small page framed by four corner marks,
+    /// evoking "grab and drag this image out".
+    private static func dragGlyphImage() -> NSImage {
+        let size = NSSize(width: 18, height: 18)
+        let image = NSImage(size: size, flipped: false) { _ in
+            NSColor.black.setStroke()
+
+            // Page in the middle.
+            let page = NSBezierPath(
+                roundedRect: NSRect(x: 5.5, y: 4, width: 7, height: 10),
+                xRadius: 1.3,
+                yRadius: 1.3
+            )
+            page.lineWidth = 1.3
+            page.stroke()
+
+            // Four corner marks around it (a drag "marquee").
+            let outer = NSRect(x: 1.6, y: 1.6, width: 14.8, height: 14.8)
+            let arm: CGFloat = 3.0
+            let marks = NSBezierPath()
+            marks.lineWidth = 1.5
+            marks.lineCapStyle = .round
+            marks.lineJoinStyle = .round
+            // Top-left
+            marks.move(to: NSPoint(x: outer.minX, y: outer.maxY - arm))
+            marks.line(to: NSPoint(x: outer.minX, y: outer.maxY))
+            marks.line(to: NSPoint(x: outer.minX + arm, y: outer.maxY))
+            // Top-right
+            marks.move(to: NSPoint(x: outer.maxX - arm, y: outer.maxY))
+            marks.line(to: NSPoint(x: outer.maxX, y: outer.maxY))
+            marks.line(to: NSPoint(x: outer.maxX, y: outer.maxY - arm))
+            // Bottom-right
+            marks.move(to: NSPoint(x: outer.maxX, y: outer.minY + arm))
+            marks.line(to: NSPoint(x: outer.maxX, y: outer.minY))
+            marks.line(to: NSPoint(x: outer.maxX - arm, y: outer.minY))
+            // Bottom-left
+            marks.move(to: NSPoint(x: outer.minX + arm, y: outer.minY))
+            marks.line(to: NSPoint(x: outer.minX, y: outer.minY))
+            marks.line(to: NSPoint(x: outer.minX, y: outer.minY + arm))
+            marks.stroke()
+            return true
+        }
+        image.isTemplate = true
+        return image
+    }
+
+    private func makeDragButton() -> DragExportButton {
+        let button = DragExportButton()
+        button.toolTip = "ドラッグで画像を書き出す（Finderや他アプリにドロップ）"
+        button.bezelStyle = .texturedRounded
+        button.imagePosition = .imageOnly
+        button.image = Self.dragGlyphImage()
+        button.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            button.widthAnchor.constraint(equalToConstant: 34),
+            button.heightAnchor.constraint(equalToConstant: 30)
+        ])
+        button.imageProvider = { [weak self] in self?.canvasView.renderedImage() }
+        button.fileNameProvider = { [weak self] in self?.suggestedFileName() ?? "Capture.png" }
+        // Get the editor out of the way once the drag has moved a little, so it
+        // does not cover the drop target. Dropped → stay hidden (reopen from the
+        // Dock/menu, edits kept); cancelled → bring it back.
+        button.onDragMovedAway = { [weak self] in
+            self?.fadeOutForDrag()
+        }
+        button.onDragEnded = { [weak self] dropped in
+            guard let self else { return }
+            let wasHidden = self.isHiddenForDrag
+            self.isHiddenForDrag = false
+            self.window?.alphaValue = 1
+            if dropped {
+                self.hideEditor()
+            } else if wasHidden {
+                self.showEditor()
+            }
+        }
+        return button
+    }
+
+    private func fadeOutForDrag() {
+        guard let window, window.isVisible else { return }
+        isHiddenForDrag = true
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.2
+            window.animator().alphaValue = 0
+        }, completionHandler: { [weak self] in
+            MainActor.assumeIsolated {
+                // The drag may have been cancelled mid-fade; leave the window up then.
+                guard let self, self.isHiddenForDrag else { return }
+                window.orderOut(nil)
+                window.alphaValue = 1
+            }
+        })
+    }
+
     private func makeIconButton(symbol: String, toolTip: String, action: Selector) -> NSButton {
         let button = NSButton()
         button.target = self
@@ -404,15 +527,6 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
 
     private func requestImageReplacement(with image: NSImage, sourceName: String) {
         showEditor()
-        if canvasView.baseImage != nil {
-            let alert = NSAlert()
-            alert.alertStyle = .warning
-            alert.messageText = "現在の画像を破棄しますか？"
-            alert.informativeText = "現在表示している画像と編集内容は失われます。"
-            alert.addButton(withTitle: "破棄して開く")
-            alert.addButton(withTitle: "キャンセル")
-            guard alert.runModal() == .alertFirstButtonReturn else { return }
-        }
         canvasView.loadImage(image)
         currentSourceName = sourceName
         isDirty = false
@@ -422,6 +536,10 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
 
     @objc private func toolChanged(_ sender: NSButton) {
         guard let tool = EditorTool(rawValue: sender.tag) else { return }
+        activateTool(tool)
+    }
+
+    func activateTool(_ tool: EditorTool) {
         selectToolButton(tool)
         if tool != .crop {
             lastNonCropTool = tool
@@ -472,7 +590,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
     }
 
     @objc private func widthChanged(_ sender: NSPopUpButton) {
-        let widths: [CGFloat] = [2, 4, 6, 10]
+        let widths: [CGFloat] = [2, 4, 6, 10, 16, 24]
         let index = max(0, min(sender.indexOfSelectedItem, widths.count - 1))
         canvasView.setLineWidth(widths[index])
     }
@@ -485,7 +603,30 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
         openImage(at: url)
     }
 
+    /// ⌘S — save immediately to the configured folder (Downloads by default),
+    /// no dialog. Falls back to Save As if the folder can't be written.
     @objc func saveImage() {
+        guard let image = canvasView.renderedImage(), let data = image.pngData() else {
+            NSSound.beep()
+            return
+        }
+        let folder = SaveLocation.folderURL
+        let url = SaveLocation.uniqueURL(for: suggestedFileName(), in: folder)
+        do {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            try data.write(to: url, options: .atomic)
+            isDirty = false
+            currentSourceName = url.lastPathComponent
+            updateWindowTitle()
+            updateStatus(message: "\(folder.lastPathComponent) に \(url.lastPathComponent) を保存しました")
+        } catch {
+            // Couldn't write to the chosen folder — fall back to a Save panel.
+            saveAsImage()
+        }
+    }
+
+    /// ⇧⌘S — choose the location with a Save panel.
+    @objc func saveAsImage() {
         guard let image = canvasView.renderedImage(), let data = image.pngData() else {
             NSSound.beep()
             return
@@ -493,6 +634,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.png]
         panel.nameFieldStringValue = suggestedFileName()
+        panel.directoryURL = SaveLocation.folderURL
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
             try data.write(to: url, options: .atomic)
@@ -571,23 +713,33 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
     private func updateWindowTitle() {
         let source = currentSourceName.map { " — \($0)" } ?? ""
         let dirtyMark = isDirty ? " ●" : ""
-        window?.title = "PictoJot\(source)\(dirtyMark)"
+        window?.title = "Capture\(source)\(dirtyMark)"
     }
 
     private func updateStatus(message: String? = nil) {
         if let message {
             statusLabel.stringValue = message
         } else if let image = canvasView.baseImage {
-            statusLabel.stringValue = "\(Int(image.size.width)) × \(Int(image.size.height)) px"
+            // Report the real bitmap size: a Retina capture holds 2x the points.
+            let pixels = image.cgImageValue.map { CGSize(width: $0.width, height: $0.height) } ?? image.size
+            statusLabel.stringValue = "\(Int(pixels.width)) × \(Int(pixels.height)) px ・ \(zoomPercent)%"
         } else {
             statusLabel.stringValue = "画像を開いてください"
         }
     }
 
+    @objc private func fillToggled(_ sender: NSButton) {
+        canvasView.setFilled(sender.state == .on)
+    }
+
+    @objc func zoomIn() { canvasView.zoomIn() }
+    @objc func zoomOut() { canvasView.zoomOut() }
+    @objc func zoomFit() { canvasView.resetZoom() }
+
     private func suggestedFileName() -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd HH.mm.ss"
-        return "PictoJot \(formatter.string(from: Date())).png"
+        return "Capture \(formatter.string(from: Date())).png"
     }
 
     private func showError(title: String, message: String) {

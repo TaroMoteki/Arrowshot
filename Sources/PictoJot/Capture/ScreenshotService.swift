@@ -49,7 +49,28 @@ struct ScreenshotService {
         configuration.showsCursor = false
 
         let cgImage = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: configuration)
-        return HighQualityCaptureProcessor.downsample(cgImage, toLogicalSize: localRect.size)
+        return Self.nativeImage(cgImage, pointPixelScale: CGFloat(filter.pointPixelScale))
+    }
+
+    func captureDisplay(displayID: CGDirectDisplayID) async throws -> NSImage {
+        let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+        guard let display = content.displays.first(where: { $0.displayID == displayID }) ?? content.displays.first else {
+            throw ScreenshotServiceError.displayNotFound
+        }
+
+        let ownApplications = content.applications.filter { $0.processID == getpid() }
+        let filter = SCContentFilter(display: display, excludingApplications: ownApplications, exceptingWindows: [])
+        let configuration = SCStreamConfiguration()
+        let outputSize = CaptureOutputSizing.nativePixels(
+            forLogicalSize: display.frame.size,
+            pointPixelScale: CGFloat(filter.pointPixelScale)
+        )
+        configuration.width = outputSize.width
+        configuration.height = outputSize.height
+        configuration.showsCursor = false
+
+        let cgImage = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: configuration)
+        return Self.nativeImage(cgImage, pointPixelScale: CGFloat(filter.pointPixelScale))
     }
 
     func captureWindow(windowID: CGWindowID) async throws -> NSImage {
@@ -90,6 +111,18 @@ struct ScreenshotService {
         configuration.showsCursor = false
 
         let cgImage = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: configuration)
-        return HighQualityCaptureProcessor.downsample(cgImage, toLogicalSize: targetWindow.frame.size)
+        return Self.nativeImage(cgImage, pointPixelScale: CGFloat(filter.pointPixelScale))
+    }
+
+    /// Wraps the captured bitmap without resampling it. Every native (Retina)
+    /// pixel is kept, while `size` stays in points so one image point still maps
+    /// to one screen point on screen and in the editor's coordinates.
+    private static func nativeImage(_ cgImage: CGImage, pointPixelScale: CGFloat) -> NSImage {
+        let scale = max(1, pointPixelScale)
+        let logicalSize = CGSize(
+            width: CGFloat(cgImage.width) / scale,
+            height: CGFloat(cgImage.height) / scale
+        )
+        return NSImage(cgImage: cgImage, size: logicalSize)
     }
 }

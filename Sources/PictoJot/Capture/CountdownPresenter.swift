@@ -1,13 +1,70 @@
 import AppKit
+import CoreText
+
+/// Draws one countdown digit as a black number with a thin white outline.
+/// The outline is stroked from the glyph path with round joins so sharp glyph
+/// corners (like "2") don't produce spikes.
+private final class CountdownDigitView: NSView {
+    var value: Int = 0 {
+        didSet { needsDisplay = true }
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        guard let context = NSGraphicsContext.current?.cgContext else { return }
+
+        let font = NSFont.monospacedDigitSystemFont(ofSize: 96, weight: .heavy)
+        let attributed = NSAttributedString(string: "\(value)", attributes: [.font: font])
+        let line = CTLineCreateWithAttributedString(attributed)
+
+        let glyphPath = CGMutablePath()
+        for run in CTLineGetGlyphRuns(line) as? [CTRun] ?? [] {
+            let count = CTRunGetGlyphCount(run)
+            guard count > 0 else { continue }
+            var glyphs = [CGGlyph](repeating: 0, count: count)
+            var positions = [CGPoint](repeating: .zero, count: count)
+            CTRunGetGlyphs(run, CFRange(location: 0, length: count), &glyphs)
+            CTRunGetPositions(run, CFRange(location: 0, length: count), &positions)
+            let runFont = font as CTFont
+            for index in 0..<count {
+                guard let letter = CTFontCreatePathForGlyph(runFont, glyphs[index], nil) else { continue }
+                let transform = CGAffineTransform(translationX: positions[index].x, y: positions[index].y)
+                glyphPath.addPath(letter, transform: transform)
+            }
+        }
+
+        let box = glyphPath.boundingBoxOfPath
+        guard box.width > 0, box.height > 0 else { return }
+        let centered = CGMutablePath()
+        centered.addPath(
+            glyphPath,
+            transform: CGAffineTransform(
+                translationX: bounds.midX - box.midX,
+                y: bounds.midY - box.midY
+            )
+        )
+
+        context.setLineJoin(.round)
+        context.setLineCap(.round)
+        // White outline (round joins avoid spikes), then black fill on top.
+        context.addPath(centered)
+        context.setStrokeColor(NSColor.white.cgColor)
+        context.setLineWidth(5)
+        context.strokePath()
+        context.addPath(centered)
+        context.setFillColor(NSColor.black.cgColor)
+        context.fillPath()
+    }
+}
 
 @MainActor
 final class CountdownPresenter {
     private var window: NSWindow?
-    private let label = NSTextField(labelWithString: "5")
+    private let digitView = CountdownDigitView()
 
-    func run(centeredOn quartzRect: CGRect) async throws {
+    func run(centeredOn quartzRect: CGRect, seconds: Int = 5) async throws {
+        let total = max(1, seconds)
         let cocoaRect = ScreenCoordinates.quartzRectToCocoa(quartzRect)
-        let size = CGSize(width: 104, height: 104)
+        let size = CGSize(width: 140, height: 140)
         let frame = CGRect(
             x: cocoaRect.midX - size.width / 2,
             y: cocoaRect.midY - size.height / 2,
@@ -23,29 +80,19 @@ final class CountdownPresenter {
         window.level = .screenSaver
         window.isOpaque = false
         window.backgroundColor = .clear
-        window.hasShadow = true
+        window.hasShadow = false
         window.ignoresMouseEvents = true
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
 
-        let background = NSVisualEffectView(frame: CGRect(origin: .zero, size: size))
-        background.material = .hudWindow
-        background.state = .active
-        background.wantsLayer = true
-        background.layer?.cornerRadius = 18
-        background.layer?.masksToBounds = true
-
-        label.frame = background.bounds
-        label.alignment = .center
-        label.font = .monospacedDigitSystemFont(ofSize: 58, weight: .bold)
-        label.textColor = .white
-        background.addSubview(label)
-        window.contentView = background
+        digitView.frame = CGRect(origin: .zero, size: size)
+        digitView.value = total
+        window.contentView = digitView
         self.window = window
         window.orderFrontRegardless()
 
         do {
-            for count in stride(from: 5, through: 1, by: -1) {
-                label.stringValue = "\(count)"
+            for count in stride(from: total, through: 1, by: -1) {
+                digitView.value = count
                 try await Task.sleep(for: .seconds(1))
             }
             window.orderOut(nil)

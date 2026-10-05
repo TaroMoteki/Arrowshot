@@ -11,7 +11,7 @@ if [[ -f "$signing_configuration" ]]; then
     source "$signing_configuration"
 fi
 
-application_path="$repository_root/.build/PictoJot.app"
+application_path="$repository_root/.build/Capture.app"
 installer_identity="${PICTOJOT_INSTALLER_SIGN_IDENTITY:-}"
 
 "$repository_root/Scripts/build-app.sh" "$configuration"
@@ -33,15 +33,15 @@ cleanup_temporary_directories() {
 }
 trap cleanup_temporary_directories EXIT
 
-ditto "$application_path" "$packaging_root/PictoJot.app"
-codesign --verify --deep --strict "$packaging_root/PictoJot.app"
+ditto "$application_path" "$packaging_root/Capture.app"
+codesign --verify --deep --strict "$packaging_root/Capture.app"
 
 if [[ -f "$package_path" ]]; then
     rm "$package_path"
 fi
 
 package_flags=(
-    --component "$packaging_root/PictoJot.app"
+    --component "$packaging_root/Capture.app"
     --install-location /Applications
     --scripts "$repository_root/Scripts/PackageScripts"
     --identifier "$package_identifier"
@@ -64,15 +64,20 @@ fi
 validation_root="$(mktemp -d "$repository_root/.build/pkg-validation.XXXXXX")"
 validation_directory="$validation_root/expanded"
 pkgutil --expand-full "$package_path" "$validation_directory"
-codesign --verify --deep --strict "$validation_directory/Payload/PictoJot.app"
+codesign --verify --deep --strict "$validation_directory/Payload/Capture.app"
 rm -r "$validation_root"
 validation_root=""
 
 # pkgbuild can attach filesystem metadata to a source bundle while inspecting it.
 # Re-sign the standalone build artifact so both the package payload and .app remain valid.
-application_identity="${PICTOJOT_APP_SIGN_IDENTITY:--}"
+# Mirror build-app.sh: keep the stable local identity so TCC permissions survive.
+default_application_identity="-"
+if security find-identity -p codesigning 2>/dev/null | grep -q "Capture Local Signing"; then
+    default_application_identity="Capture Local Signing"
+fi
+application_identity="${PICTOJOT_APP_SIGN_IDENTITY:-$default_application_identity}"
 application_signing_flags=(--force --sign "$application_identity")
-if [[ "$application_identity" != "-" ]]; then
+if [[ "$application_identity" != "-" && "$application_identity" != "Capture Local Signing" ]]; then
     application_signing_flags+=(--options runtime --timestamp)
 fi
 codesign $application_signing_flags "$application_path"

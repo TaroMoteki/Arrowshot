@@ -2,7 +2,7 @@
 
 set -eu
 
-application_path="/Applications/PictoJot.app"
+application_path="/Applications/Capture.app"
 [[ -d "$application_path" ]] || exit 0
 
 console_user="$(/usr/bin/stat -f '%Su' /dev/console)"

@@ -25,7 +25,6 @@ CLANG_MODULE_CACHE_PATH="$module_cache" swiftc \
     Sources/PictoJot/Capture/ScreenCoordinates.swift \
     Sources/PictoJot/Capture/CaptureOutputSizing.swift \
     Sources/PictoJot/Capture/OverlayWindowGeometry.swift \
-    Sources/PictoJot/Capture/HighQualityCaptureProcessor.swift \
     Tests/CoreLogicSmokeTests.swift \
     -framework AppKit \
     -framework CoreImage \

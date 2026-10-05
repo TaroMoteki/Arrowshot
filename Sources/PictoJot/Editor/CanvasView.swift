@@ -12,6 +12,27 @@ protocol CanvasViewDelegate: AnyObject {
 
 private final class InlineInputTextView: NSTextView {
     var inputDidUpdate: (() -> Void)?
+    /// Called for ⌘Return / ⌘Enter to commit the text.
+    var onCommitRequested: (() -> Void)?
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if handleCommitKey(event) { return true }
+        return super.performKeyEquivalent(with: event)
+    }
+
+    override func keyDown(with event: NSEvent) {
+        if handleCommitKey(event) { return }
+        super.keyDown(with: event)
+    }
+
+    private func handleCommitKey(_ event: NSEvent) -> Bool {
+        guard window?.firstResponder === self,
+              event.keyCode == 36 || event.keyCode == 76,
+              event.modifierFlags.intersection(.deviceIndependentFlagsMask).contains(.command),
+              !hasMarkedText() else { return false }
+        onCommitRequested?()
+        return true
+    }
 
     override func setMarkedText(_ string: Any, selectedRange: NSRange, replacementRange: NSRange) {
         super.setMarkedText(string, selectedRange: selectedRange, replacementRange: replacementRange)
@@ -107,6 +128,12 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
     var currentColor: NSColor = PictoJotStyle.defaultAnnotationColor
     var currentLineWidth: CGFloat = 6
+    /// When true, new rectangles/ellipses are filled instead of outlined.
+    var currentFilled = false
+    /// The most recent text size the user set by dragging a text handle, kept so
+    /// the next new text starts at that size. Reset per image (new capture) and
+    /// when the width control explicitly changes the size.
+    private var currentTextSize: CGFloat?
     let editingUndoManager = UndoManager()
 
     private var previewAnnotation: Annotation?
@@ -123,6 +150,16 @@ final class CanvasView: NSView, NSTextViewDelegate {
     private var cropSelectionRect: CGRect?
     private var cropDragEdges: CropEdges = []
     private var originalCropRect: CGRect?
+    /// Frozen image layout during an active crop drag, so the mapping does not
+    /// shift under the cursor while the crop grows beyond the image.
+    private var frozenImageRect: CGRect?
+
+    /// View zoom (1 = fit to window) and pan offset in view points.
+    private var zoomFactor: CGFloat = 1
+    private var panOffset: CGPoint = .zero
+    private let maxZoomFactor: CGFloat = 8
+    /// Reports the current on-screen scale as a percentage of the image's pixels.
+    var onZoomChanged: ((Int) -> Void)?
 
     private enum SelectionDragMode {
         case move
@@ -163,6 +200,11 @@ final class CanvasView: NSView, NSTextViewDelegate {
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
+        // Since the macOS 14 SDK, views no longer clip drawing to their bounds by
+        // default. Without this, a zoomed-in image spills over the toolbar and
+        // sidebar and hides their buttons.
+        clipsToBounds = true
+        layer?.masksToBounds = true
         layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
         registerForDraggedTypes([.fileURL])
     }
@@ -209,17 +251,22 @@ final class CanvasView: NSView, NSTextViewDelegate {
 
     func loadImage(_ image: NSImage) {
         finishInlineTextEditing(commit: false)
-        baseImage = image.normalizedToPixelSize()
+        baseImage = image.normalizedForEditing()
         annotations = []
+        currentTextSize = nil
         selectedAnnotationID = nil
         previewAnnotation = nil
         pixelatedImageCache = nil
         editingUndoManager.removeAllActions()
         cropSelectionRect = nil
+        frozenImageRect = nil
+        zoomFactor = 1
+        panOffset = .zero
         if tool == .crop {
             beginCropSelection()
         }
         needsDisplay = true
+        notifyZoomChanged()
     }
 
     func clear() {
@@ -245,6 +292,9 @@ final class CanvasView: NSView, NSTextViewDelegate {
 
     func setLineWidth(_ width: CGFloat) {
         currentLineWidth = width
+        // The width control explicitly sets text size, so drop the remembered
+        // drag size and let new text follow the width-derived default again.
+        currentTextSize = nil
         guard let index = selectedIndex, annotations[index].kind != .mosaic else { return }
         let before = snapshot()
         annotations[index].lineWidth = width
@@ -253,6 +303,16 @@ final class CanvasView: NSView, NSTextViewDelegate {
             resizeTextBounds(at: index)
         }
         registerUndo(to: before, actionName: "太さを変更")
+        contentDidChange()
+    }
+
+    func setFilled(_ filled: Bool) {
+        currentFilled = filled
+        guard let index = selectedIndex,
+              annotations[index].kind == .rectangle || annotations[index].kind == .ellipse else { return }
+        let before = snapshot()
+        annotations[index].filled = filled
+        registerUndo(to: before, actionName: "塗りつぶしを変更")
         contentDidChange()
     }
 
@@ -281,6 +341,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         cropSelectionRect = nil
         cropDragEdges = []
         originalCropRect = nil
+        frozenImageRect = nil
         applyCrop(crop)
         registerUndo(to: before, actionName: "画像を切り取り")
         delegate?.canvasView(self, didUpdateCropRect: nil)
@@ -291,6 +352,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         cropSelectionRect = nil
         cropDragEdges = []
         originalCropRect = nil
+        frozenImageRect = nil
         delegate?.canvasView(self, didUpdateCropRect: nil)
         needsDisplay = true
     }
@@ -303,12 +365,26 @@ final class CanvasView: NSView, NSTextViewDelegate {
         editingUndoManager.redo()
     }
 
+    /// How many bitmap pixels the base image holds per point (2 for a Retina
+    /// capture). Annotations live in points, so exports scale by this.
+    private var basePixelScale: CGFloat {
+        guard let baseImage, baseImage.size.width > 0, let cgImage = baseImage.cgImageValue else { return 1 }
+        return max(1, CGFloat(cgImage.width) / baseImage.size.width)
+    }
+
     func renderedImage() -> NSImage? {
         finishInlineTextEditing(commit: true)
         guard let baseImage else { return nil }
-        return PixelExactImageRenderer.render(size: baseImage.size) { targetRect in
+        // Export at the captured resolution, not at the point size, so Retina
+        // captures keep every pixel they were taken with.
+        let scale = basePixelScale
+        let pixelSize = CGSize(
+            width: (baseImage.size.width * scale).rounded(),
+            height: (baseImage.size.height * scale).rounded()
+        )
+        return PixelExactImageRenderer.render(size: pixelSize) { targetRect in
             baseImage.draw(in: targetRect, from: .zero, operation: .copy, fraction: 1, respectFlipped: true, hints: nil)
-            drawAnnotationLayers(annotations, in: targetRect, imageScale: 1)
+            drawAnnotationLayers(annotations, in: targetRect, imageScale: scale)
         }
     }
 
@@ -323,11 +399,21 @@ final class CanvasView: NSView, NSTextViewDelegate {
         }
 
         let targetRect = imageRect(for: baseImage)
+        let scale = targetRect.width / baseImage.size.width
+
+        // When the crop extends past the image, show the expansion area as white
+        // (it becomes white in the final image).
+        if let cropSelectionRect {
+            let cropView = map(cropSelectionRect, into: targetRect, scale: scale)
+            NSColor.shadowColor.withAlphaComponent(0.25).setFill()
+            cropView.insetBy(dx: -1, dy: -1).fill()
+            NSColor.white.setFill()
+            cropView.fill()
+        }
+
         NSColor.shadowColor.withAlphaComponent(0.25).setFill()
         targetRect.insetBy(dx: -1, dy: -1).fill()
-        baseImage.draw(in: targetRect, from: .zero, operation: .copy, fraction: 1, respectFlipped: true, hints: nil)
-
-        let scale = targetRect.width / baseImage.size.width
+        baseImage.draw(in: targetRect, from: .zero, operation: .sourceOver, fraction: 1, respectFlipped: true, hints: nil)
         var displayedAnnotations = annotations
         if let previewAnnotation {
             displayedAnnotations.append(previewAnnotation)
@@ -374,6 +460,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         cropSelectionRect = CGRect(origin: .zero, size: baseImage.size)
         cropDragEdges = []
         originalCropRect = nil
+        frozenImageRect = nil
         delegate?.canvasView(self, didUpdateCropRect: cropSelectionRect)
         needsDisplay = true
     }
@@ -426,22 +513,28 @@ final class CanvasView: NSView, NSTextViewDelegate {
     private func updateCropResize(to point: CGPoint) {
         guard !cropDragEdges.isEmpty, let originalCropRect, let baseImage else { return }
         let minimumSize: CGFloat = 12
+        // Allow the crop to extend beyond the image (expansion, filled white),
+        // capped at one extra image-size of white margin on each side.
+        let lowerX = -baseImage.size.width
+        let upperX = baseImage.size.width * 2
+        let lowerY = -baseImage.size.height
+        let upperY = baseImage.size.height * 2
         var minX = originalCropRect.minX
         var maxX = originalCropRect.maxX
         var minY = originalCropRect.minY
         var maxY = originalCropRect.maxY
 
         if cropDragEdges.contains(.left) {
-            minX = min(max(0, point.x), maxX - minimumSize)
+            minX = min(max(lowerX, point.x), maxX - minimumSize)
         }
         if cropDragEdges.contains(.right) {
-            maxX = max(min(baseImage.size.width, point.x), minX + minimumSize)
+            maxX = max(min(upperX, point.x), minX + minimumSize)
         }
         if cropDragEdges.contains(.top) {
-            minY = min(max(0, point.y), maxY - minimumSize)
+            minY = min(max(lowerY, point.y), maxY - minimumSize)
         }
         if cropDragEdges.contains(.bottom) {
-            maxY = max(min(baseImage.size.height, point.y), minY + minimumSize)
+            maxY = max(min(upperY, point.y), minY + minimumSize)
         }
 
         cropSelectionRect = CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
@@ -514,7 +607,8 @@ final class CanvasView: NSView, NSTextViewDelegate {
                 from: start,
                 to: end,
                 color: annotation.color,
-                lineWidth: lineWidth
+                lineWidth: lineWidth,
+                shadowScale: imageScale
             )
         case .line:
             let start = map(annotation.start, into: targetRect, scale: imageScale)
@@ -530,11 +624,19 @@ final class CanvasView: NSView, NSTextViewDelegate {
             let path = NSBezierPath(rect: map(annotation.rect, into: targetRect, scale: imageScale))
             path.lineWidth = lineWidth
             path.lineJoinStyle = .round
-            path.stroke()
+            if annotation.filled {
+                path.fill()
+            } else {
+                path.stroke()
+            }
         case .ellipse:
             let path = NSBezierPath(ovalIn: map(annotation.rect, into: targetRect, scale: imageScale))
             path.lineWidth = lineWidth
-            path.stroke()
+            if annotation.filled {
+                path.fill()
+            } else {
+                path.stroke()
+            }
         case .text:
             let mappedRect = map(annotation.rect, into: targetRect, scale: imageScale)
             let fontSize = max(1, effectiveTextFontSize(for: annotation) * imageScale)
@@ -544,6 +646,14 @@ final class CanvasView: NSView, NSTextViewDelegate {
             let lineHeight = ceil(font.ascender - font.descender + font.leading)
             for (lineIndex, line) in annotation.text.components(separatedBy: "\n").enumerated() {
                 let point = CGPoint(x: mappedRect.minX, y: mappedRect.minY + CGFloat(lineIndex) * lineHeight)
+                // Three passes, as Skitch does it: the glyphs cast the shadow,
+                // then the white halo paints over its near edge, then the fill.
+                withTextShadow(fontSize: fontSize) {
+                    (line as NSString).draw(
+                        at: point,
+                        withAttributes: fillAttributes
+                    )
+                }
                 (line as NSString).draw(
                     at: point,
                     withAttributes: outlineAttributes
@@ -563,7 +673,8 @@ final class CanvasView: NSView, NSTextViewDelegate {
         from start: CGPoint,
         to end: CGPoint,
         color: NSColor,
-        lineWidth: CGFloat
+        lineWidth: CGFloat,
+        shadowScale: CGFloat
     ) {
         let points = ArrowGeometry.points(from: start, to: end, lineWidth: lineWidth)
         guard let firstPoint = points.first else { return }
@@ -573,8 +684,56 @@ final class CanvasView: NSView, NSTextViewDelegate {
             arrow.line(to: point)
         }
         arrow.close()
-        color.setFill()
-        arrow.fill()
+        arrow.lineJoinStyle = .round
+        // Like Skitch: no outline, just the solid shape over a soft drop shadow.
+        withArrowShadow(scale: shadowScale) {
+            color.setFill()
+            arrow.fill()
+        }
+    }
+
+    /// Runs `body` with the arrow's drop shadow, scaled to the current render
+    /// scale so display and export match.
+    private func withArrowShadow(scale: CGFloat, _ body: () -> Void) {
+        withShadow(
+            color: PictoJotStyle.arrowShadowColor,
+            offsetDown: PictoJotStyle.arrowShadowOffset.height * scale,
+            offsetRight: PictoJotStyle.arrowShadowOffset.width * scale,
+            blurRadius: PictoJotStyle.arrowShadowBlurRadius * scale,
+            body
+        )
+    }
+
+    /// Runs `body` with the text's drop shadow. `fontSize` is the already
+    /// scaled on-screen size, so the shadow grows with both the text size and
+    /// the render scale.
+    private func withTextShadow(fontSize: CGFloat, _ body: () -> Void) {
+        withShadow(
+            color: PictoJotStyle.textShadowColor,
+            offsetDown: fontSize * PictoJotStyle.textShadowOffsetRatio,
+            offsetRight: 0,
+            blurRadius: fontSize * PictoJotStyle.textShadowBlurRatio,
+            body
+        )
+    }
+
+    private func withShadow(
+        color: NSColor,
+        offsetDown: CGFloat,
+        offsetRight: CGFloat,
+        blurRadius: CGFloat,
+        _ body: () -> Void
+    ) {
+        NSGraphicsContext.saveGraphicsState()
+        let shadow = NSShadow()
+        shadow.shadowColor = color
+        // AppKit keeps shadow offsets in the unflipped base space even inside a
+        // flipped context, so "down on screen" is always a negative y here.
+        shadow.shadowOffset = CGSize(width: offsetRight, height: -offsetDown)
+        shadow.shadowBlurRadius = blurRadius
+        shadow.set()
+        body()
+        NSGraphicsContext.restoreGraphicsState()
     }
 
     private func drawSelection(for annotation: Annotation, in targetRect: CGRect, imageScale: CGFloat) {
@@ -736,11 +895,27 @@ final class CanvasView: NSView, NSTextViewDelegate {
 
     override func mouseDown(with event: NSEvent) {
         guard let baseImage else { return }
+        // Clicking away from an open text box only finishes it (like Skitch);
+        // the next click starts a new one. Otherwise a fresh empty box would
+        // swallow tool shortcut keys such as R.
+        // AppKit moves focus to the canvas (ending the edit) before mouseDown
+        // runs, so also check whether this very click is what ended it.
+        let wasEditingText = inlineTextEditor != nil
+            || textEditEndedByMouseDownTimestamp == event.timestamp
+        textEditEndedByMouseDownTimestamp = nil
         window?.makeFirstResponder(self)
         let viewPoint = convert(event.locationInWindow, from: nil)
         if tool == .crop {
-            guard imageRect(for: baseImage).insetBy(dx: -12, dy: -12).contains(viewPoint) else { return }
-            dragStart = unclampedImagePoint(from: viewPoint, image: baseImage)
+            let edges = cropSelectionRect.map { cropEdges(at: viewPoint, crop: $0) } ?? []
+            // Allow grabbing a handle even when it sits outside the image (an
+            // already-expanded crop); otherwise require a click near the image.
+            if edges.isEmpty {
+                guard imageRect(for: baseImage).insetBy(dx: -12, dy: -12).contains(viewPoint) else { return }
+            }
+            // Freeze the layout for the duration of the drag so the mapping is
+            // stable while the crop grows beyond the image.
+            frozenImageRect = imageRect(for: baseImage)
+            dragStart = rawImagePoint(from: viewPoint, image: baseImage)
             dragStartInView = viewPoint
             didChangeDuringDrag = false
             selectionDragMode = nil
@@ -768,7 +943,9 @@ final class CanvasView: NSView, NSTextViewDelegate {
         needsDisplay = true
         switch tool {
         case .text:
-            beginInlineTextEditing(at: imagePoint)
+            if !wasEditingText {
+                beginInlineTextEditing(at: imagePoint)
+            }
         default:
             previewAnnotation = makeAnnotation(for: tool, from: imagePoint, to: imagePoint)
         }
@@ -777,12 +954,12 @@ final class CanvasView: NSView, NSTextViewDelegate {
     override func mouseDragged(with event: NSEvent) {
         guard let baseImage, let dragStart else { return }
         let viewPoint = convert(event.locationInWindow, from: nil)
-        let imagePoint = unclampedImagePoint(from: viewPoint, image: baseImage)
 
         if tool == .crop {
-            updateCropResize(to: imagePoint)
+            updateCropResize(to: rawImagePoint(from: viewPoint, image: baseImage))
             return
         }
+        let imagePoint = unclampedImagePoint(from: viewPoint, image: baseImage)
 
         if let selectionDragMode {
             guard let index = selectedIndex, let originalAnnotation else { return }
@@ -799,7 +976,13 @@ final class CanvasView: NSView, NSTextViewDelegate {
                 }
             case .endpoint(let endpoint):
                 annotations[index] = originalAnnotation
-                annotations[index].moveEndpoint(endpoint, to: imagePoint)
+                var target = imagePoint
+                if originalAnnotation.kind == .arrow || originalAnnotation.kind == .line,
+                   event.modifierFlags.contains(.shift) {
+                    let anchor = endpoint == .end ? originalAnnotation.start : originalAnnotation.end
+                    target = angleConstrainedPoint(from: anchor, to: imagePoint)
+                }
+                annotations[index].moveEndpoint(endpoint, to: target)
                 NSCursor.crosshair.set()
             case .resize(let corner):
                 annotations[index] = originalAnnotation
@@ -828,10 +1011,26 @@ final class CanvasView: NSView, NSTextViewDelegate {
         case .text:
             break
         default:
-            previewAnnotation = makeAnnotation(for: tool, from: dragStart, to: imagePoint)
+            var endPoint = imagePoint
+            if tool == .line || tool == .arrow, event.modifierFlags.contains(.shift) {
+                endPoint = angleConstrainedPoint(from: dragStart, to: endPoint)
+            }
+            previewAnnotation = makeAnnotation(for: tool, from: dragStart, to: endPoint)
             didChangeDuringDrag = true
             needsDisplay = true
         }
+    }
+
+    /// Snaps `end` to the nearest 45° direction from `start` (horizontal,
+    /// vertical, or diagonal) — used while Shift is held for lines and arrows.
+    private func angleConstrainedPoint(from start: CGPoint, to end: CGPoint) -> CGPoint {
+        let dx = end.x - start.x
+        let dy = end.y - start.y
+        let length = hypot(dx, dy)
+        guard length > 0 else { return end }
+        let step = CGFloat.pi / 4
+        let snapped = (atan2(dy, dx) / step).rounded() * step
+        return CGPoint(x: start.x + cos(snapped) * length, y: start.y + sin(snapped) * length)
     }
 
     override func mouseUp(with event: NSEvent) {
@@ -850,10 +1049,18 @@ final class CanvasView: NSView, NSTextViewDelegate {
         if tool == .crop {
             cropDragEdges = []
             originalCropRect = nil
+            // Unfreeze so the layout re-fits to show the full expanded crop.
+            frozenImageRect = nil
+            needsDisplay = true
             return
         }
-        if selectionDragMode != nil {
+        if let mode = selectionDragMode {
             if didChangeDuringDrag, let stateBeforeDrag {
+                // Remember a drag-resized text size so the next new text reuses it.
+                if case .textResize = mode, let index = selectedIndex,
+                   annotations[index].kind == .text {
+                    currentTextSize = annotations[index].textSize
+                }
                 registerUndo(to: stateBeforeDrag, actionName: selectionActionName)
                 contentDidChange()
             }
@@ -882,12 +1089,44 @@ final class CanvasView: NSView, NSTextViewDelegate {
         }
     }
 
+    /// Requests that the current crop selection be applied (Return in crop mode).
+    var onCropCommitRequested: (() -> Void)?
+
     override func keyDown(with event: NSEvent) {
+        // Return / Enter applies the crop while cropping.
+        if tool == .crop, cropSelectionRect != nil, event.keyCode == 36 || event.keyCode == 76 {
+            onCropCommitRequested?()
+            return
+        }
         if event.keyCode == 51 || event.keyCode == 117 {
             deleteSelection()
             return
         }
+        // Single-key tool shortcuts (only when not editing text and no modifier).
+        if inlineTextEditor == nil,
+           event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
+           let chars = event.charactersIgnoringModifiers?.lowercased(),
+           let tool = CanvasView.toolForShortcut(chars) {
+            onToolShortcut?(tool)
+            return
+        }
         super.keyDown(with: event)
+    }
+
+    /// Reports a tool chosen by keyboard so the controller can update the UI too.
+    var onToolShortcut: ((EditorTool) -> Void)?
+
+    private static func toolForShortcut(_ key: String) -> EditorTool? {
+        switch key {
+        case "a", "1": return .arrow
+        case "t", "2": return .text
+        case "r", "3": return .rectangle
+        case "o", "4": return .ellipse
+        case "l", "5": return .line
+        case "m", "6": return .mosaic
+        case "c", "7": return .crop
+        default: return nil
+        }
     }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
@@ -921,7 +1160,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
             originalAnnotation: nil,
             color: currentColor,
             lineWidth: currentLineWidth,
-            fontSize: defaultTextFontSize(for: currentLineWidth)
+            fontSize: currentTextSize ?? defaultTextFontSize(for: currentLineWidth)
         )
         presentInlineTextEditor(text: "", session: session)
     }
@@ -956,6 +1195,11 @@ final class CanvasView: NSView, NSTextViewDelegate {
             guard let self, self.inlineTextEditor === editor else { return }
             self.updateInlineTextEditorFrame()
         }
+        editor.textView.onCommitRequested = { [weak self, weak editor] in
+            guard let self, self.inlineTextEditor === editor else { return }
+            self.finishInlineTextEditing(commit: true)
+            self.window?.makeFirstResponder(self)
+        }
         editor.textView.string = text
         editor.textView.textStorage?.setAttributes(
             attributes,
@@ -976,8 +1220,15 @@ final class CanvasView: NSView, NSTextViewDelegate {
         updateInlineTextEditorFrame()
     }
 
+    /// Timestamp of the mouse-down that ended inline text editing, so that
+    /// click only commits the text instead of starting a new text box.
+    private var textEditEndedByMouseDownTimestamp: TimeInterval?
+
     func textDidEndEditing(_ notification: Notification) {
         guard notification.object as? NSTextView === inlineTextEditor?.textView else { return }
+        if let event = NSApp.currentEvent, event.type == .leftMouseDown {
+            textEditEndedByMouseDownTimestamp = event.timestamp
+        }
         finishInlineTextEditing(commit: true)
     }
 
@@ -986,10 +1237,13 @@ final class CanvasView: NSView, NSTextViewDelegate {
         if commandSelector == #selector(NSResponder.insertNewline(_:)),
            NSApp.currentEvent?.modifierFlags.contains(.command) == true {
             finishInlineTextEditing(commit: true)
+            window?.makeFirstResponder(self)
             return true
         }
         if commandSelector == #selector(NSResponder.cancelOperation(_:)) {
-            finishInlineTextEditing(commit: false)
+            // Esc keeps what was typed and leaves text mode so tool keys work.
+            finishInlineTextEditing(commit: true)
+            window?.makeFirstResponder(self)
             return true
         }
         return false
@@ -1030,6 +1284,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         textEditingSession = nil
         editor.textView.delegate = nil
         editor.textView.inputDidUpdate = nil
+        editor.textView.onCommitRequested = nil
         editor.removeFromSuperview()
 
         if commit, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -1078,9 +1333,9 @@ final class CanvasView: NSView, NSTextViewDelegate {
         case .arrow:
             return Annotation(kind: .arrow, start: start, end: end, color: currentColor, lineWidth: currentLineWidth)
         case .rectangle:
-            return Annotation(kind: .rectangle, rect: rect, color: currentColor, lineWidth: currentLineWidth)
+            return Annotation(kind: .rectangle, rect: rect, color: currentColor, lineWidth: currentLineWidth, filled: currentFilled)
         case .ellipse:
-            return Annotation(kind: .ellipse, rect: rect, color: currentColor, lineWidth: currentLineWidth)
+            return Annotation(kind: .ellipse, rect: rect, color: currentColor, lineWidth: currentLineWidth, filled: currentFilled)
         case .line:
             return Annotation(kind: .line, start: start, end: end, color: currentColor, lineWidth: currentLineWidth)
         case .mosaic:
@@ -1100,21 +1355,50 @@ final class CanvasView: NSView, NSTextViewDelegate {
     }
 
     private func applyCrop(_ cropRect: CGRect) {
-        guard let baseImage, let cgImage = baseImage.cgImageValue else { return }
+        guard let baseImage else { return }
         let imageBounds = CGRect(origin: .zero, size: baseImage.size)
-        let crop = cropRect.standardized.intersection(imageBounds).integral
+        let crop = cropRect.standardized.integral
         guard crop.width >= 1, crop.height >= 1 else { return }
 
-        let scaleX = CGFloat(cgImage.width) / baseImage.size.width
-        let scaleY = CGFloat(cgImage.height) / baseImage.size.height
-        let pixelCrop = CGRect(
-            x: crop.minX * scaleX,
-            y: crop.minY * scaleY,
-            width: crop.width * scaleX,
-            height: crop.height * scaleY
-        ).integral
-        guard let cropped = cgImage.cropping(to: pixelCrop) else { return }
-        self.baseImage = NSImage(cgImage: cropped, size: crop.size)
+        if imageBounds.contains(crop), let cgImage = baseImage.cgImageValue {
+            // Pure shrink: crop the pixels directly (preserves resolution).
+            let scaleX = CGFloat(cgImage.width) / baseImage.size.width
+            let scaleY = CGFloat(cgImage.height) / baseImage.size.height
+            let pixelCrop = CGRect(
+                x: crop.minX * scaleX,
+                y: crop.minY * scaleY,
+                width: crop.width * scaleX,
+                height: crop.height * scaleY
+            ).integral
+            guard let cropped = cgImage.cropping(to: pixelCrop) else { return }
+            self.baseImage = NSImage(cgImage: cropped, size: crop.size)
+        } else {
+            // Expansion: paint a white canvas and composite the original image at
+            // its offset; areas outside the original stay white.
+            let pixelScale = basePixelScale
+            let canvasSize = CGSize(
+                width: (crop.width * pixelScale).rounded(),
+                height: (crop.height * pixelScale).rounded()
+            )
+            guard let expanded = PixelExactImageRenderer.render(size: canvasSize, drawing: { bounds in
+                NSColor.white.setFill()
+                bounds.fill()
+                baseImage.draw(
+                    in: CGRect(
+                        x: -crop.minX * pixelScale,
+                        y: -crop.minY * pixelScale,
+                        width: baseImage.size.width * pixelScale,
+                        height: baseImage.size.height * pixelScale
+                    ),
+                    from: .zero,
+                    operation: .sourceOver,
+                    fraction: 1,
+                    respectFlipped: true,
+                    hints: [.interpolation: NSImageInterpolation.high.rawValue]
+                )
+            }), let expandedPixels = expanded.cgImageValue else { return }
+            self.baseImage = NSImage(cgImage: expandedPixels, size: crop.size)
+        }
         pixelatedImageCache = nil
 
         annotations = annotations.compactMap { existing in
@@ -1142,9 +1426,13 @@ final class CanvasView: NSView, NSTextViewDelegate {
                     return index
                 }
             case .rectangle:
-                let outer = annotation.rect.insetBy(dx: -tolerance, dy: -tolerance)
-                let inner = annotation.rect.insetBy(dx: tolerance, dy: tolerance)
-                if outer.contains(unrotatedPoint) && !inner.contains(unrotatedPoint) { return index }
+                if annotation.filled {
+                    if annotation.rect.insetBy(dx: -tolerance, dy: -tolerance).contains(unrotatedPoint) { return index }
+                } else {
+                    let outer = annotation.rect.insetBy(dx: -tolerance, dy: -tolerance)
+                    let inner = annotation.rect.insetBy(dx: tolerance, dy: tolerance)
+                    if outer.contains(unrotatedPoint) && !inner.contains(unrotatedPoint) { return index }
+                }
             case .ellipse, .text:
                 if annotation.rect.insetBy(dx: -tolerance, dy: -tolerance).contains(unrotatedPoint) { return index }
             case .mosaic:
@@ -1290,12 +1578,107 @@ final class CanvasView: NSView, NSTextViewDelegate {
         return annotations.firstIndex { $0.id == selectedAnnotationID }
     }
 
-    private func imageRect(for image: NSImage) -> CGRect {
-        let available = bounds.insetBy(dx: 28, dy: 28)
+    /// The image's placement when fit to the window (no view zoom applied).
+    private func fitImageRect(for image: NSImage) -> CGRect {
         guard image.size.width > 0, image.size.height > 0 else { return .zero }
-        let scale = min(available.width / image.size.width, available.height / image.size.height)
-        let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
-        return CGRect(x: available.midX - size.width / 2, y: available.midY - size.height / 2, width: size.width, height: size.height)
+
+        // In crop mode, leave a margin and reserve room for a crop that extends
+        // beyond the image, so the user can drag handles outward into white space.
+        let inset: CGFloat
+        var content = CGRect(origin: .zero, size: image.size)
+        if let cropSelectionRect {
+            inset = max(28, min(bounds.width, bounds.height) * 0.12)
+            content = content.union(cropSelectionRect)
+        } else {
+            inset = 28
+        }
+        let available = bounds.insetBy(dx: inset, dy: inset)
+        guard content.width > 0, content.height > 0 else { return .zero }
+
+        // Never enlarge: a screenshot smaller than the window is shown at its
+        // captured size (100%), and only oversized captures are shrunk to fit.
+        let scale = min(1, min(available.width / content.width, available.height / content.height))
+        let contentSize = CGSize(width: content.width * scale, height: content.height * scale)
+        let contentOrigin = CGPoint(
+            x: available.midX - contentSize.width / 2,
+            y: available.midY - contentSize.height / 2
+        )
+        // Where the image (0,0,w,h) sits within the laid-out content.
+        return CGRect(
+            x: contentOrigin.x + (0 - content.minX) * scale,
+            y: contentOrigin.y + (0 - content.minY) * scale,
+            width: image.size.width * scale,
+            height: image.size.height * scale
+        )
+    }
+
+    private func imageRect(for image: NSImage) -> CGRect {
+        if let frozenImageRect { return frozenImageRect }
+        let fit = fitImageRect(for: image)
+        // View zoom & pan apply only during normal editing, not while cropping.
+        guard cropSelectionRect == nil, zoomFactor != 1 || panOffset != .zero else { return fit }
+        let width = fit.width * zoomFactor
+        let height = fit.height * zoomFactor
+        let centerX = fit.midX + panOffset.x
+        let centerY = fit.midY + panOffset.y
+        return CGRect(
+            x: centerX - width / 2,
+            y: centerY - height / 2,
+            width: width,
+            height: height
+        )
+    }
+
+    // MARK: View zoom
+
+    func zoomIn() { applyZoom(zoomFactor * 1.25) }
+    func zoomOut() { applyZoom(zoomFactor / 1.25) }
+    func resetZoom() {
+        zoomFactor = 1
+        panOffset = .zero
+        needsDisplay = true
+        notifyZoomChanged()
+    }
+
+    var canZoomOut: Bool { zoomFactor > 1.0001 }
+
+    private func applyZoom(_ newZoom: CGFloat) {
+        guard let baseImage, cropSelectionRect == nil else { return }
+        zoomFactor = min(maxZoomFactor, max(1, newZoom))
+        panOffset = clampedPanOffset(panOffset, fit: fitImageRect(for: baseImage))
+        needsDisplay = true
+        notifyZoomChanged()
+    }
+
+    private func clampedPanOffset(_ pan: CGPoint, fit: CGRect) -> CGPoint {
+        let available = bounds.insetBy(dx: 28, dy: 28)
+        let maxX = max(0, (fit.width * zoomFactor - available.width) / 2)
+        let maxY = max(0, (fit.height * zoomFactor - available.height) / 2)
+        return CGPoint(
+            x: min(maxX, max(-maxX, pan.x)),
+            y: min(maxY, max(-maxY, pan.y))
+        )
+    }
+
+    private func notifyZoomChanged() {
+        guard let baseImage, baseImage.size.width > 0 else { return }
+        let percent = Int((imageRect(for: baseImage).width / baseImage.size.width * 100).rounded())
+        onZoomChanged?(percent)
+    }
+
+    override func magnify(with event: NSEvent) {
+        guard baseImage != nil, cropSelectionRect == nil else { return }
+        applyZoom(zoomFactor * (1 + event.magnification))
+    }
+
+    override func scrollWheel(with event: NSEvent) {
+        guard let baseImage, cropSelectionRect == nil, zoomFactor > 1 else {
+            super.scrollWheel(with: event)
+            return
+        }
+        let proposed = CGPoint(x: panOffset.x + event.scrollingDeltaX, y: panOffset.y + event.scrollingDeltaY)
+        panOffset = clampedPanOffset(proposed, fit: fitImageRect(for: baseImage))
+        needsDisplay = true
     }
 
     private func imagePoint(from viewPoint: CGPoint, image: NSImage) -> CGPoint? {
@@ -1310,6 +1693,18 @@ final class CanvasView: NSView, NSTextViewDelegate {
         return CGPoint(
             x: min(image.size.width, max(0, (viewPoint.x - rect.minX) / scale)),
             y: min(image.size.height, max(0, (viewPoint.y - rect.minY) / scale))
+        )
+    }
+
+    /// Like `unclampedImagePoint`, but without clamping to the image bounds — used
+    /// for crop, which may extend past the image into white space.
+    private func rawImagePoint(from viewPoint: CGPoint, image: NSImage) -> CGPoint {
+        let rect = imageRect(for: image)
+        guard rect.width > 0, image.size.width > 0 else { return .zero }
+        let scale = rect.width / image.size.width
+        return CGPoint(
+            x: (viewPoint.x - rect.minX) / scale,
+            y: (viewPoint.y - rect.minY) / scale
         )
     }
 
@@ -1382,7 +1777,8 @@ final class CanvasView: NSView, NSTextViewDelegate {
         guard let baseImage, let cgImage = baseImage.cgImageValue else { return nil }
         let filter = CIFilter.pixellate()
         filter.inputImage = CIImage(cgImage: cgImage)
-        filter.scale = 16
+        // Block size in points, kept constant regardless of backing scale.
+        filter.scale = Float(PictoJotStyle.mosaicBlockSize * basePixelScale)
         guard let output = filter.outputImage,
               let rendered = CIContext(options: [.useSoftwareRenderer: false]).createCGImage(output, from: output.extent) else { return nil }
         let result = NSImage(cgImage: rendered, size: baseImage.size)

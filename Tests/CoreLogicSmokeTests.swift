@@ -59,8 +59,8 @@ struct CoreLogicSmokeTests {
 
         let referenceColor = PictoJotStyle.defaultAnnotationColor.usingColorSpace(.sRGB)!
         precondition(abs(referenceColor.redComponent - 1) < 0.0001)
-        precondition(abs(referenceColor.greenComponent - 75 / 255) < 0.0001)
-        precondition(abs(referenceColor.blueComponent - 127 / 255) < 0.0001)
+        precondition(abs(referenceColor.greenComponent - 59 / 255) < 0.0001)
+        precondition(abs(referenceColor.blueComponent - 48 / 255) < 0.0001)
         let outlineColor = PictoJotStyle.textOutlineColor.usingColorSpace(.sRGB)!
         precondition(outlineColor.redComponent == 1)
         precondition(outlineColor.greenComponent == 1)
@@ -85,8 +85,13 @@ struct CoreLogicSmokeTests {
             to: CGPoint(x: 110, y: 30),
             lineWidth: 6
         )
-        precondition(arrowPoints.count == 7)
         precondition(ArrowGeometry.boundingRect(for: arrowPoints).maxX == 110)
+        // Skitch-style silhouette: widest at the head, tapering to a thin tail.
+        let arrowBounds = ArrowGeometry.boundingRect(for: arrowPoints)
+        let tailHalfWidth = arrowPoints.map { abs($0.y - 30) }.min()!
+        let headHalfWidth = arrowBounds.height / 2
+        precondition(headHalfWidth > tailHalfWidth * 6)
+        precondition(abs(headHalfWidth - 0.49 * max(18, 6 * 5)) < 0.5)
 
         var rectangle = Annotation(
             kind: .rectangle,
@@ -158,13 +163,16 @@ struct CoreLogicSmokeTests {
             bytesPerRow: 0,
             bitsPerPixel: 0
         )!
-        let downsampled = HighQualityCaptureProcessor.downsample(
-            highResolutionRep.cgImage!,
-            toLogicalSize: CGSize(width: 10, height: 6)
-        )
-        precondition(downsampled.size == CGSize(width: 10, height: 6))
-        precondition(downsampled.representations.first?.pixelsWide == 10)
-        precondition(downsampled.representations.first?.pixelsHigh == 6)
+        // A 2x capture keeps all of its pixels while reporting a logical size.
+        let retinaCapture = NSImage(cgImage: highResolutionRep.cgImage!, size: CGSize(width: 10, height: 6))
+        let normalizedRetina = retinaCapture.normalizedForEditing()
+        precondition(normalizedRetina.size == CGSize(width: 10, height: 6))
+        precondition(normalizedRetina.representations.first?.pixelsWide == 20)
+        precondition(normalizedRetina.representations.first?.pixelsHigh == 12)
+
+        // An image with no meaningful point size falls back to its pixel size.
+        let oddScaleImage = NSImage(cgImage: highResolutionRep.cgImage!, size: CGSize(width: 13, height: 7))
+        precondition(oddScaleImage.normalizedForEditing().size == CGSize(width: 20, height: 12))
 
         let expectedExportSize = CGSize(width: 1022, height: 659)
         guard let rendered = PixelExactImageRenderer.render(size: expectedExportSize, drawing: { bounds in

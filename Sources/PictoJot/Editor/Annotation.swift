@@ -20,6 +20,19 @@ enum EditorTool: Int, CaseIterable, Hashable {
         case .crop: "切取"
         }
     }
+
+    /// Single-key shortcut, matching CanvasView's keyDown handling.
+    var shortcutLabel: String {
+        switch self {
+        case .arrow: "A"
+        case .text: "T"
+        case .rectangle: "R"
+        case .ellipse: "O"
+        case .line: "L"
+        case .mosaic: "M"
+        case .crop: "C"
+        }
+    }
 }
 
 enum AnnotationKind {
@@ -77,6 +90,8 @@ struct Annotation {
     var lineWidth: CGFloat
     var text: String
     var textSize: CGFloat
+    /// Rectangles and ellipses only: fill the shape instead of stroking its outline.
+    var filled: Bool
 
     init(
         id: UUID = UUID(),
@@ -88,7 +103,8 @@ struct Annotation {
         color: NSColor,
         lineWidth: CGFloat,
         text: String = "",
-        textSize: CGFloat = 0
+        textSize: CGFloat = 0,
+        filled: Bool = false
     ) {
         self.id = id
         self.kind = kind
@@ -100,6 +116,7 @@ struct Annotation {
         self.lineWidth = lineWidth
         self.text = text
         self.textSize = kind == .text && textSize <= 0 ? 16 + lineWidth * 3 : textSize
+        self.filled = filled
     }
 
     var center: CGPoint {

@@ -325,6 +325,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let editSeparator = NSMenuItem.separator()
         editMenu.addItem(editSeparator)
 
+        let cutItem = NSMenuItem(
+            title: "切り取り",
+            action: #selector(EditorWindowController.cutText),
+            keyEquivalent: "x"
+        )
+        cutItem.target = editorWindowController
+        editMenu.addItem(cutItem)
+
         let copyItem = NSMenuItem(
             title: "コピー",
             action: #selector(EditorWindowController.copyImage),
@@ -340,8 +348,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         pasteItem.target = editorWindowController
         editMenu.addItem(pasteItem)
+
+        let selectAllItem = NSMenuItem(
+            title: "すべてを選択",
+            action: #selector(EditorWindowController.selectAllText),
+            keyEquivalent: "a"
+        )
+        selectAllItem.target = editorWindowController
+        editMenu.addItem(selectAllItem)
         let editMenuDelegate = MinimalEditMenuDelegate(
-            permittedItems: [undoItem, redoItem, editSeparator, copyItem, pasteItem]
+            permittedItems: [undoItem, redoItem, editSeparator, cutItem, copyItem, pasteItem, selectAllItem]
         )
         editMenu.delegate = editMenuDelegate
         self.editMenuDelegate = editMenuDelegate

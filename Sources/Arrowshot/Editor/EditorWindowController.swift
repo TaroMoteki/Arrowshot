@@ -647,7 +647,29 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
         }
     }
 
+    /// The inline text field while a text annotation is being typed. Edit menu
+    /// commands act on its text instead of on the image.
+    private var activeTextView: NSTextView? {
+        window?.firstResponder as? NSTextView
+    }
+
+    @objc func cutText() {
+        guard let textView = activeTextView else {
+            NSSound.beep()
+            return
+        }
+        textView.cut(nil)
+    }
+
+    @objc func selectAllText() {
+        activeTextView?.selectAll(nil)
+    }
+
     @objc func copyImage() {
+        if let textView = activeTextView {
+            textView.copy(nil)
+            return
+        }
         guard let image = canvasView.renderedImage(), let pngData = image.pngData() else {
             NSSound.beep()
             return
@@ -659,6 +681,10 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
     }
 
     @objc func pasteImage() {
+        if let textView = activeTextView {
+            textView.paste(nil)
+            return
+        }
         let pasteboard = NSPasteboard.general
         if let image = NSImage(pasteboard: pasteboard) {
             requestImageReplacement(with: image, sourceName: "クリップボード")
@@ -680,10 +706,18 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
     }
 
     @objc func undoEdit() {
+        if let textView = activeTextView {
+            textView.undoManager?.undo()
+            return
+        }
         canvasView.undoEdit()
     }
 
     @objc func redoEdit() {
+        if let textView = activeTextView {
+            textView.undoManager?.redo()
+            return
+        }
         canvasView.redoEdit()
     }
 

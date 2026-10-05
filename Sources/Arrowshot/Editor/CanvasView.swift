@@ -14,6 +14,10 @@ private final class InlineInputTextView: NSTextView {
     var inputDidUpdate: (() -> Void)?
     /// Called for ⌘Return / ⌘Enter to commit the text.
     var onCommitRequested: (() -> Void)?
+    /// Typing undo stays local to this field so it never mixes with image edits.
+    private let typingUndoManager = UndoManager()
+
+    override var undoManager: UndoManager? { typingUndoManager }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         if handleCommitKey(event) { return true }
@@ -62,6 +66,7 @@ private final class InlineTextEditor: NSView {
         textView.translatesAutoresizingMaskIntoConstraints = false
         textView.isRichText = false
         textView.importsGraphics = false
+        textView.allowsUndo = true
         textView.drawsBackground = false
         textView.isHorizontallyResizable = true
         textView.isVerticallyResizable = true

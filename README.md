@@ -14,20 +14,39 @@ Everything runs locally on your Mac. No account, no cloud, no network access.
 - **Bold labels** — red text with a white outline and shadow, readable on any background
 - **Rectangles, ellipses (optionally filled), lines, pixelation, and cropping** — crop can extend beyond the image edge
 - **Drag to export** — drag the finished image from the toolbar straight into another app without saving a file
-- **Global hotkeys** — work from any app, and can be changed in Settings
+- **Global hotkeys** — capture from any app; every capture shortcut can be changed in [Settings](#settings)
 - **Retina quality** — captures keep the display's native pixels
 - Zoom (pinch, ⌘+ / ⌘− / ⌘0), Shift to snap lines and arrows to 45°, undo/redo, PNG save, and clipboard copy
 
-### Default shortcuts
+## Shortcuts
+
+### Global (work from any app)
+
+| Action | Default | Changeable |
+|---|---|---|
+| Capture a region or window | ⌘⇧2 | Yes |
+| Capture with a timer | ⌘⇧1 | Yes |
+| Capture the full screen | ⌘⌥⇧3 | Yes |
+| Open Settings | ⌘⇧, | — |
+
+### In the editor
 
 | Action | Shortcut |
 |---|---|
-| Capture a region or window | ⌘⇧2 |
-| Capture with a timer | ⌘⇧1 |
-| Capture the full screen | ⌘⌥⇧3 |
-| Settings | ⌘, |
+| Save / Save As | ⌘S / ⌘⇧S |
+| Copy to clipboard | ⌘C |
+| Undo / Redo | ⌘Z / ⌘⇧Z |
+| Zoom in / out / fit | ⌘+ / ⌘− / ⌘0 |
+| Open Settings | ⌘, |
+| Switch tools | A (arrow), T (text), R (rectangle), O (ellipse), L (line), M (pixelate), C (crop), or 1–7 |
 
-In the editor, switch tools with A (arrow), T (text), R (rectangle), O (ellipse), L (line), M (pixelate), C (crop), or 1–7.
+## Settings
+
+Open Settings with ⌘⇧, from any app, or ⌘, while Arrowshot is active. You can change:
+
+- **Capture shortcuts** — click a field and press the new key combination (include ⌘, ⌃, or ⌥). **Reset to Defaults** (デフォルトに戻す) restores the original keys.
+- **Save folder** — where ⌘S saves instantly. Defaults to Downloads.
+- **Timer length** — 3 or 5 seconds for the timed capture.
 
 ## Requirements
 

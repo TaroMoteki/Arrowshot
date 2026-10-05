@@ -8,8 +8,6 @@ Everything runs locally on your Mac. No account, no cloud, no network access.
 
 ![The Arrowshot editor with arrows, labels, a filled box, and the crop, copy, save, and drag-to-export controls highlighted](docs/images/arrowshot-overview.png)
 
-> **Note:** The interface is currently in Japanese only. English localization is planned.
-
 ## Features
 
 - **Skitch-style arrows** — a tapered shaft with a soft drop shadow, tuned to read clearly at a glance
@@ -18,6 +16,7 @@ Everything runs locally on your Mac. No account, no cloud, no network access.
 - **Drag to export** — drag the finished image from the toolbar straight into another app without saving a file
 - **Global hotkeys** — capture from any app; every capture shortcut can be changed in [Settings](#settings)
 - **Retina quality** — captures keep the display's native pixels
+- **English and Japanese** — follows your macOS language, or pick one in Settings
 - Zoom (pinch, ⌘+ / ⌘− / ⌘0), Shift to snap lines and arrows to 45°, undo/redo, PNG save, and clipboard copy
 
 ## Shortcuts
@@ -46,9 +45,10 @@ Everything runs locally on your Mac. No account, no cloud, no network access.
 
 Open Settings with ⌘, while Arrowshot is active (click its Dock icon first), or from the menu-bar icon. You can change:
 
-- **Capture shortcuts** — click a field and press the new key combination (include ⌘, ⌃, or ⌥). **Reset to Defaults** (デフォルトに戻す) restores the original keys.
+- **Capture shortcuts** — click a field and press the new key combination (include ⌘, ⌃, or ⌥). **Reset to Defaults** restores the original keys.
 - **Save folder** — where ⌘S saves instantly. Defaults to Downloads.
 - **Timer length** — 3 or 5 seconds for the timed capture.
+- **Language** — System, English, or 日本語. Arrowshot asks to restart to apply it.
 
 ## Requirements
 

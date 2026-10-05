@@ -31,6 +31,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var settingsWindowController: SettingsWindowController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // The editor is a single window, so keep the tab bar items out of the View menu.
+        NSWindow.allowsAutomaticWindowTabbing = false
         NSApp.setActivationPolicy(.regular)
         editorWindowController.onVisibilityChanged = { [weak self] isVisible in
             self?.updateApplicationPresentation(editorIsVisible: isVisible)
@@ -85,7 +87,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         updateCaptureMenuShortcut(immediateCaptureItem, combo: settings.combo(for: .immediate))
         updateCaptureMenuShortcut(timerCaptureItem, combo: settings.combo(for: .timer))
         updateCaptureMenuShortcut(fullScreenCaptureItem, combo: settings.combo(for: .fullScreen))
-        timerCaptureItem.title = "タイマー十字スナップショット（\(CaptureTimerSettings.seconds)秒）"
+        timerCaptureItem.title = String(format: NSLocalizedString("Timed Crosshair Snapshot (%d sec)", comment: ""), CaptureTimerSettings.seconds)
     }
 
     private func updateCaptureMenuShortcut(_ item: NSMenuItem?, combo: HotKeyCombo) {
@@ -167,7 +169,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.autoenablesItems = false
 
         immediateCaptureItem = NSMenuItem(
-            title: "十字スナップショット",
+            title: NSLocalizedString("Crosshair Snapshot", comment: ""),
             action: #selector(startImmediateCapture),
             keyEquivalent: "2"
         )
@@ -175,7 +177,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         immediateCaptureItem.target = self
 
         timerCaptureItem = NSMenuItem(
-            title: "タイマー十字スナップショット",
+            title: NSLocalizedString("Timed Crosshair Snapshot", comment: ""),
             action: #selector(startTimerCapture),
             keyEquivalent: "1"
         )
@@ -183,42 +185,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         timerCaptureItem.target = self
 
         timer3CaptureItem = NSMenuItem(
-            title: "3秒タイマー",
+            title: NSLocalizedString("3-Second Timer", comment: ""),
             action: #selector(startTimerCapture3),
             keyEquivalent: ""
         )
         timer3CaptureItem.target = self
 
         timer5CaptureItem = NSMenuItem(
-            title: "5秒タイマー",
+            title: NSLocalizedString("5-Second Timer", comment: ""),
             action: #selector(startTimerCapture5),
             keyEquivalent: ""
         )
         timer5CaptureItem.target = self
 
         fullScreenCaptureItem = NSMenuItem(
-            title: "全画面スナップショット",
+            title: NSLocalizedString("Full Screen Snapshot", comment: ""),
             action: #selector(startFullScreenCapture),
             keyEquivalent: ""
         )
         fullScreenCaptureItem.target = self
 
         let showItem = NSMenuItem(
-            title: "Arrowshotを表示",
+            title: NSLocalizedString("Show Arrowshot", comment: ""),
             action: #selector(showEditor),
             keyEquivalent: ""
         )
         showItem.target = self
 
         let settingsItem = NSMenuItem(
-            title: "設定…",
+            title: NSLocalizedString("Settings…", comment: ""),
             action: #selector(openSettings),
             keyEquivalent: ","
         )
         settingsItem.keyEquivalentModifierMask = [.command]
         settingsItem.target = self
 
-        let quitItem = NSMenuItem(title: "Arrowshotを終了", action: #selector(quit), keyEquivalent: "q")
+        let quitItem = NSMenuItem(title: NSLocalizedString("Quit Arrowshot", comment: ""), action: #selector(quit), keyEquivalent: "q")
         quitItem.target = self
 
         menu.addItem(immediateCaptureItem)
@@ -240,7 +242,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let applicationItem = NSMenuItem(title: "Arrowshot", action: nil, keyEquivalent: "")
         let applicationMenu = NSMenu(title: "Arrowshot")
         let aboutItem = NSMenuItem(
-            title: "Arrowshotについて",
+            title: NSLocalizedString("About Arrowshot", comment: ""),
             action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
             keyEquivalent: ""
         )
@@ -249,7 +251,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         applicationMenu.addItem(.separator())
 
         let settingsItem = NSMenuItem(
-            title: "設定…",
+            title: NSLocalizedString("Settings…", comment: ""),
             action: #selector(openSettings),
             keyEquivalent: ","
         )
@@ -258,22 +260,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         applicationMenu.addItem(settingsItem)
         applicationMenu.addItem(.separator())
 
-        let hideItem = NSMenuItem(title: "Arrowshotを隠す", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        let hideItem = NSMenuItem(title: NSLocalizedString("Hide Arrowshot", comment: ""), action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         hideItem.target = NSApp
         applicationMenu.addItem(hideItem)
 
         applicationMenu.addItem(.separator())
 
-        let quitItem = NSMenuItem(title: "Arrowshotを終了", action: #selector(quit), keyEquivalent: "q")
+        let quitItem = NSMenuItem(title: NSLocalizedString("Quit Arrowshot", comment: ""), action: #selector(quit), keyEquivalent: "q")
         quitItem.target = self
         applicationMenu.addItem(quitItem)
         applicationItem.submenu = applicationMenu
         mainMenu.addItem(applicationItem)
 
-        let fileItem = NSMenuItem(title: "ファイル", action: nil, keyEquivalent: "")
-        let fileMenu = NSMenu(title: "ファイル")
+        let fileItem = NSMenuItem(title: NSLocalizedString("File", comment: ""), action: nil, keyEquivalent: "")
+        let fileMenu = NSMenu(title: NSLocalizedString("File", comment: ""))
         let openItem = NSMenuItem(
-            title: "開く…",
+            title: NSLocalizedString("Open…", comment: ""),
             action: #selector(EditorWindowController.openImagePanel),
             keyEquivalent: "o"
         )
@@ -281,7 +283,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         fileMenu.addItem(openItem)
 
         let saveItem = NSMenuItem(
-            title: "保存",
+            title: NSLocalizedString("Save", comment: ""),
             action: #selector(EditorWindowController.saveImage),
             keyEquivalent: "s"
         )
@@ -289,7 +291,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         fileMenu.addItem(saveItem)
 
         let saveAsItem = NSMenuItem(
-            title: "名前を付けて保存…",
+            title: NSLocalizedString("Save As…", comment: ""),
             action: #selector(EditorWindowController.saveAsImage),
             keyEquivalent: "s"
         )
@@ -298,16 +300,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         fileMenu.addItem(saveAsItem)
         fileMenu.addItem(.separator())
 
-        let closeItem = NSMenuItem(title: "閉じる", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        let closeItem = NSMenuItem(title: NSLocalizedString("Close", comment: ""), action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
         closeItem.target = editorWindowController.window
         fileMenu.addItem(closeItem)
         fileItem.submenu = fileMenu
         mainMenu.addItem(fileItem)
 
-        let editItem = NSMenuItem(title: "編集", action: nil, keyEquivalent: "")
-        let editMenu = NSMenu(title: "編集")
+        let editItem = NSMenuItem(title: NSLocalizedString("Edit", comment: ""), action: nil, keyEquivalent: "")
+        let editMenu = NSMenu(title: NSLocalizedString("Edit", comment: ""))
         let undoItem = NSMenuItem(
-            title: "取り消す",
+            title: NSLocalizedString("Undo", comment: ""),
             action: #selector(EditorWindowController.undoEdit),
             keyEquivalent: "z"
         )
@@ -315,7 +317,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         editMenu.addItem(undoItem)
 
         let redoItem = NSMenuItem(
-            title: "やり直す",
+            title: NSLocalizedString("Redo", comment: ""),
             action: #selector(EditorWindowController.redoEdit),
             keyEquivalent: "z"
         )
@@ -326,7 +328,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         editMenu.addItem(editSeparator)
 
         let cutItem = NSMenuItem(
-            title: "切り取り",
+            title: NSLocalizedString("Cut", comment: ""),
             action: #selector(EditorWindowController.cutText),
             keyEquivalent: "x"
         )
@@ -334,7 +336,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         editMenu.addItem(cutItem)
 
         let copyItem = NSMenuItem(
-            title: "コピー",
+            title: NSLocalizedString("Copy", comment: ""),
             action: #selector(EditorWindowController.copyImage),
             keyEquivalent: "c"
         )
@@ -342,7 +344,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         editMenu.addItem(copyItem)
 
         let pasteItem = NSMenuItem(
-            title: "ペースト",
+            title: NSLocalizedString("Paste", comment: ""),
             action: #selector(EditorWindowController.pasteImage),
             keyEquivalent: "v"
         )
@@ -350,7 +352,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         editMenu.addItem(pasteItem)
 
         let selectAllItem = NSMenuItem(
-            title: "すべてを選択",
+            title: NSLocalizedString("Select All", comment: ""),
             action: #selector(EditorWindowController.selectAllText),
             keyEquivalent: "a"
         )
@@ -364,10 +366,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         editItem.submenu = editMenu
         mainMenu.addItem(editItem)
 
-        let viewItem = NSMenuItem(title: "表示", action: nil, keyEquivalent: "")
-        let viewMenu = NSMenu(title: "表示")
+        let viewItem = NSMenuItem(title: NSLocalizedString("View", comment: ""), action: nil, keyEquivalent: "")
+        let viewMenu = NSMenu(title: NSLocalizedString("View", comment: ""))
         let zoomInItem = NSMenuItem(
-            title: "拡大",
+            title: NSLocalizedString("Zoom In", comment: ""),
             action: #selector(EditorWindowController.zoomIn),
             keyEquivalent: "+"
         )
@@ -377,7 +379,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Also accept ⌘= (same physical key as ⌘+ without Shift).
         let zoomInAltItem = NSMenuItem(
-            title: "拡大",
+            title: NSLocalizedString("Zoom In", comment: ""),
             action: #selector(EditorWindowController.zoomIn),
             keyEquivalent: "="
         )
@@ -388,7 +390,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         viewMenu.addItem(zoomInAltItem)
 
         let zoomOutItem = NSMenuItem(
-            title: "縮小",
+            title: NSLocalizedString("Zoom Out", comment: ""),
             action: #selector(EditorWindowController.zoomOut),
             keyEquivalent: "-"
         )
@@ -397,7 +399,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         viewMenu.addItem(zoomOutItem)
 
         let zoomFitItem = NSMenuItem(
-            title: "全体表示（フィット）",
+            title: NSLocalizedString("Zoom to Fit", comment: ""),
             action: #selector(EditorWindowController.zoomFit),
             keyEquivalent: "0"
         )
@@ -442,10 +444,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let alert = NSAlert()
         alert.alertStyle = .informational
-        alert.messageText = "ログイン時にArrowshotを開きますか？"
-        alert.informativeText = "有効にすると、Macへのログイン時にArrowshotが自動的に起動してメニューバーに常駐します。"
-        alert.addButton(withTitle: "自動起動を有効にする")
-        alert.addButton(withTitle: "今はしない")
+        alert.messageText = NSLocalizedString("Open Arrowshot at login?", comment: "")
+        alert.informativeText = NSLocalizedString("When enabled, Arrowshot opens automatically when you log in and stays in the menu bar.", comment: "")
+        alert.addButton(withTitle: NSLocalizedString("Open at Login", comment: ""))
+        alert.addButton(withTitle: NSLocalizedString("Not Now", comment: ""))
 
         if alert.runModal() == .alertFirstButtonReturn {
             do {
@@ -467,8 +469,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func showLaunchAtLoginApprovalNotice() {
         let alert = NSAlert()
         alert.alertStyle = .informational
-        alert.messageText = "ログイン項目の許可が必要です"
-        alert.informativeText = "システム設定の「一般」>「ログイン項目」でArrowshotを許可してください。"
+        alert.messageText = NSLocalizedString("Login Item Permission Required", comment: "")
+        alert.informativeText = NSLocalizedString("Allow Arrowshot in System Settings > General > Login Items.", comment: "")
         alert.addButton(withTitle: "OK")
         alert.runModal()
     }
@@ -476,7 +478,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func showLaunchAtLoginError(_ error: Error) {
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = "自動起動を設定できませんでした"
+        alert.messageText = NSLocalizedString("Couldn’t Set Arrowshot to Open at Login", comment: "")
         alert.informativeText = error.localizedDescription
         alert.addButton(withTitle: "OK")
         alert.runModal()

@@ -96,7 +96,7 @@ final class HotKeyRecorderControl: NSView {
         path.lineWidth = recording ? 2 : 1
         path.stroke()
 
-        let text = recording ? "キーを入力…" : combo.displayString
+        let text = recording ? NSLocalizedString("Type shortcut…", comment: "") : combo.displayString
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 13, weight: .medium),
             .foregroundColor: recording ? NSColor.secondaryLabelColor : NSColor.labelColor
@@ -127,7 +127,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = "設定"
+        window.title = NSLocalizedString("Settings", comment: "")
         super.init(window: window)
         window.delegate = self
         buildUI()
@@ -138,7 +138,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     private func buildUI() {
         guard let window, let contentView = window.contentView else { return }
 
-        let heading = NSTextField(labelWithString: "ショートカットキー")
+        let heading = NSTextField(labelWithString: NSLocalizedString("Capture Shortcuts", comment: ""))
         heading.font = .systemFont(ofSize: 15, weight: .semibold)
 
         let grid = NSGridView(numberOfColumns: 2, rows: 0)
@@ -165,17 +165,17 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             grid.addRow(with: [label, recorder])
         }
 
-        let hint = NSTextField(labelWithString: "欄をクリックして、割り当てたいキーを押します（⌘・⌃・⌥のいずれかを含めてください）。")
+        let hint = NSTextField(labelWithString: NSLocalizedString("Click a field and press the new key combination (include ⌘, ⌃, or ⌥).", comment: ""))
         hint.font = .systemFont(ofSize: 11)
         hint.textColor = .secondaryLabelColor
         hint.lineBreakMode = .byWordWrapping
         hint.maximumNumberOfLines = 2
 
-        let resetButton = NSButton(title: "デフォルトに戻す", target: self, action: #selector(resetDefaults))
+        let resetButton = NSButton(title: NSLocalizedString("Reset to Defaults", comment: ""), target: self, action: #selector(resetDefaults))
         resetButton.bezelStyle = .rounded
 
         // Save location section.
-        let saveHeading = NSTextField(labelWithString: "保存先（⌘Sで即保存）")
+        let saveHeading = NSTextField(labelWithString: NSLocalizedString("Save Folder (⌘S saves here instantly)", comment: ""))
         saveHeading.font = .systemFont(ofSize: 15, weight: .semibold)
 
         saveFolderValueLabel.font = .systemFont(ofSize: 12)
@@ -184,9 +184,9 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         saveFolderValueLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         updateSaveFolderLabel()
 
-        let changeFolderButton = NSButton(title: "変更…", target: self, action: #selector(chooseSaveFolder))
+        let changeFolderButton = NSButton(title: NSLocalizedString("Change…", comment: ""), target: self, action: #selector(chooseSaveFolder))
         changeFolderButton.bezelStyle = .rounded
-        let resetFolderButton = NSButton(title: "ダウンロードに戻す", target: self, action: #selector(resetSaveFolder))
+        let resetFolderButton = NSButton(title: NSLocalizedString("Reset to Downloads", comment: ""), target: self, action: #selector(resetSaveFolder))
         resetFolderButton.bezelStyle = .rounded
         let saveButtons = NSStackView(views: [changeFolderButton, resetFolderButton])
         saveButtons.spacing = 8
@@ -196,20 +196,20 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         saveSection.spacing = 8
 
         // Reference list of the fixed editor shortcuts.
-        let refHeading = NSTextField(labelWithString: "操作のショートカット")
+        let refHeading = NSTextField(labelWithString: NSLocalizedString("Editor Shortcuts", comment: ""))
         refHeading.font = .systemFont(ofSize: 15, weight: .semibold)
         let refGrid = NSGridView(numberOfColumns: 2, rows: 0)
         refGrid.columnSpacing = 16
         refGrid.rowSpacing = 6
         refGrid.column(at: 0).xPlacement = .trailing
         let references: [(String, String)] = [
-            ("保存 / 名前を付けて保存", "⌘S / ⇧⌘S"),
-            ("コピー", "⌘C"),
-            ("取り消す / やり直す", "⌘Z / ⇧⌘Z"),
-            ("拡大 / 縮小 / フィット", "⌘+ / ⌘- / ⌘0"),
-            ("設定を開く", "⌘,"),
-            ("選択したものを移動", "↑↓←→（⇧で10ずつ）"),
-            ("ツール切替", "A矢印 T文字 R四角 O楕円 L直線 Mモザイク C切取")
+            (NSLocalizedString("Save / Save As", comment: ""), "⌘S / ⇧⌘S"),
+            (NSLocalizedString("Copy", comment: ""), "⌘C"),
+            (NSLocalizedString("Undo / Redo", comment: ""), "⌘Z / ⇧⌘Z"),
+            (NSLocalizedString("Zoom In / Out / Fit", comment: ""), "⌘+ / ⌘- / ⌘0"),
+            (NSLocalizedString("Open Settings", comment: ""), "⌘,"),
+            (NSLocalizedString("Move Selection", comment: ""), NSLocalizedString("↑↓←→ (⇧ moves 10)", comment: "")),
+            (NSLocalizedString("Switch Tools", comment: ""), NSLocalizedString("A Arrow  T Text  R Rect  O Ellipse  L Line  M Pixelate  C Crop", comment: ""))
         ]
         for (name, keys) in references {
             let n = NSTextField(labelWithString: name)
@@ -223,10 +223,10 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         }
 
         // Timer duration section.
-        let timerHeading = NSTextField(labelWithString: "タイマー秒数")
+        let timerHeading = NSTextField(labelWithString: NSLocalizedString("Timer Length", comment: ""))
         timerHeading.font = .systemFont(ofSize: 15, weight: .semibold)
         let timerSegmented = NSSegmentedControl(
-            labels: ["3秒", "5秒"],
+            labels: [NSLocalizedString("3 sec", comment: ""), NSLocalizedString("5 sec", comment: "")],
             trackingMode: .selectOne,
             target: self,
             action: #selector(timerSecondsChanged(_:))
@@ -237,14 +237,34 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         timerSection.alignment = .leading
         timerSection.spacing = 8
 
+        // Interface language section.
+        let languageHeading = NSTextField(labelWithString: NSLocalizedString("Language", comment: ""))
+        languageHeading.font = .systemFont(ofSize: 15, weight: .semibold)
+        let languageSegmented = NSSegmentedControl(
+            labels: AppLanguage.allCases.map(\.label),
+            trackingMode: .selectOne,
+            target: self,
+            action: #selector(languageChanged(_:))
+        )
+        languageSegmented.selectedSegment = AppLanguage.current.rawValue
+        let languageHint = NSTextField(labelWithString: NSLocalizedString("Takes effect after Arrowshot restarts.", comment: ""))
+        languageHint.font = .systemFont(ofSize: 11)
+        languageHint.textColor = .secondaryLabelColor
+        let languageSection = NSStackView(views: [languageHeading, languageSegmented, languageHint])
+        languageSection.orientation = .vertical
+        languageSection.alignment = .leading
+        languageSection.spacing = 8
+
         let divider1 = NSBox(); divider1.boxType = .separator
         let divider2 = NSBox(); divider2.boxType = .separator
         let divider3 = NSBox(); divider3.boxType = .separator
+        let divider4 = NSBox(); divider4.boxType = .separator
 
         let stack = NSStackView(views: [
             heading, grid, hint, resetButton,
             divider1, saveSection,
             divider3, timerSection,
+            divider4, languageSection,
             divider2, refHeading, refGrid
         ])
         stack.orientation = .vertical
@@ -255,6 +275,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         stack.setCustomSpacing(18, after: resetButton)
         stack.setCustomSpacing(18, after: saveSection)
         stack.setCustomSpacing(18, after: timerSection)
+        stack.setCustomSpacing(18, after: languageSection)
         stack.setCustomSpacing(8, after: refHeading)
         contentView.addSubview(stack)
 
@@ -266,8 +287,26 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             divider1.widthAnchor.constraint(equalTo: stack.widthAnchor),
             divider2.widthAnchor.constraint(equalTo: stack.widthAnchor),
             divider3.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            divider4.widthAnchor.constraint(equalTo: stack.widthAnchor),
             saveFolderValueLabel.widthAnchor.constraint(equalTo: stack.widthAnchor)
         ])
+    }
+
+    @objc private func languageChanged(_ sender: NSSegmentedControl) {
+        guard let language = AppLanguage(rawValue: sender.selectedSegment),
+              language != AppLanguage.current else { return }
+        AppLanguage.set(language)
+
+        let alert = NSAlert()
+        alert.messageText = NSLocalizedString("Restart Arrowshot now to change the language?", comment: "")
+        alert.addButton(withTitle: NSLocalizedString("Restart Now", comment: ""))
+        alert.addButton(withTitle: NSLocalizedString("Later", comment: ""))
+        guard let window else { return }
+        alert.beginSheetModal(for: window) { response in
+            if response == .alertFirstButtonReturn {
+                AppLanguage.relaunch()
+            }
+        }
     }
 
     @objc private func timerSecondsChanged(_ sender: NSSegmentedControl) {
@@ -277,7 +316,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
     private func updateSaveFolderLabel() {
         let folder = SaveLocation.folderURL
-        let suffix = SaveLocation.isCustom ? "" : "（デフォルト）"
+        let suffix = SaveLocation.isCustom ? "" : NSLocalizedString(" (Default)", comment: "")
         saveFolderValueLabel.stringValue = "📁 \(folder.path)\(suffix)"
     }
 
@@ -287,7 +326,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
         panel.directoryURL = SaveLocation.folderURL
-        panel.prompt = "選択"
+        panel.prompt = NSLocalizedString("Choose", comment: "")
         if let window {
             panel.beginSheetModal(for: window) { [weak self] response in
                 guard response == .OK, let url = panel.url else { return }
@@ -318,8 +357,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     private func presentDuplicateAlert() {
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = "このショートカットは既に使われています"
-        alert.informativeText = "別のキーの組み合わせを指定してください。"
+        alert.messageText = NSLocalizedString("This Shortcut Is Already in Use", comment: "")
+        alert.informativeText = NSLocalizedString("Choose a different key combination.", comment: "")
         alert.addButton(withTitle: "OK")
         if let window {
             alert.beginSheetModal(for: window, completionHandler: nil)

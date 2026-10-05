@@ -11,13 +11,13 @@ enum EditorTool: Int, CaseIterable, Hashable {
 
     var title: String {
         switch self {
-        case .arrow: "矢印"
-        case .text: "文字"
-        case .rectangle: "四角"
-        case .ellipse: "楕円"
-        case .line: "直線"
-        case .mosaic: "モザイク"
-        case .crop: "切取"
+        case .arrow: NSLocalizedString("Arrow", comment: "")
+        case .text: NSLocalizedString("Text", comment: "")
+        case .rectangle: NSLocalizedString("Rectangle", comment: "")
+        case .ellipse: NSLocalizedString("Ellipse", comment: "")
+        case .line: NSLocalizedString("Line", comment: "")
+        case .mosaic: NSLocalizedString("Pixelate", comment: "")
+        case .crop: NSLocalizedString("Crop", comment: "")
         }
     }
 

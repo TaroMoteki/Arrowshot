@@ -175,10 +175,10 @@ final class CaptureCoordinator {
 
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = "画面収録の許可が必要です"
-        alert.informativeText = "システム設定の「プライバシーとセキュリティ」→「画面収録」でArrowshotを許可し、アプリを再起動してください。"
-        alert.addButton(withTitle: "システム設定を開く")
-        alert.addButton(withTitle: "キャンセル")
+        alert.messageText = NSLocalizedString("Screen Recording Permission Required", comment: "")
+        alert.informativeText = NSLocalizedString("Allow Arrowshot in System Settings > Privacy & Security > Screen Recording, then restart the app.", comment: "")
+        alert.addButton(withTitle: NSLocalizedString("Open System Settings", comment: ""))
+        alert.addButton(withTitle: NSLocalizedString("Cancel", comment: ""))
         if alert.runModal() == .alertFirstButtonReturn,
            let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
             NSWorkspace.shared.open(url)
@@ -189,7 +189,7 @@ final class CaptureCoordinator {
     private func showCaptureError(_ error: Error) {
         let alert = NSAlert()
         alert.alertStyle = .critical
-        alert.messageText = "画面をキャプチャできませんでした"
+        alert.messageText = NSLocalizedString("Couldn’t Capture the Screen", comment: "")
         alert.informativeText = error.localizedDescription
         alert.runModal()
     }

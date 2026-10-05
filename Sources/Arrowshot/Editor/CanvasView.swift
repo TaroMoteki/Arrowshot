@@ -294,7 +294,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         guard let index = selectedIndex, annotations[index].kind != .mosaic else { return }
         let before = snapshot()
         annotations[index].color = color
-        registerUndo(to: before, actionName: "色を変更")
+        registerUndo(to: before, actionName: NSLocalizedString("Change Color", comment: ""))
         contentDidChange()
     }
 
@@ -310,7 +310,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
             annotations[index].textSize = defaultTextFontSize(for: width)
             resizeTextBounds(at: index)
         }
-        registerUndo(to: before, actionName: "太さを変更")
+        registerUndo(to: before, actionName: NSLocalizedString("Change Width", comment: ""))
         contentDidChange()
     }
 
@@ -320,7 +320,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
               annotations[index].kind == .rectangle || annotations[index].kind == .ellipse else { return }
         let before = snapshot()
         annotations[index].filled = filled
-        registerUndo(to: before, actionName: "塗りつぶしを変更")
+        registerUndo(to: before, actionName: NSLocalizedString("Change Fill", comment: ""))
         contentDidChange()
     }
 
@@ -351,7 +351,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         originalCropRect = nil
         frozenImageRect = nil
         applyCrop(crop)
-        registerUndo(to: before, actionName: "画像を切り取り")
+        registerUndo(to: before, actionName: NSLocalizedString("Crop Image", comment: ""))
         delegate?.canvasView(self, didUpdateCropRect: nil)
         contentDidChange()
     }
@@ -444,7 +444,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
             .foregroundColor: NSColor.secondaryLabelColor,
             .paragraphStyle: paragraph
         ]
-        let message = "画像をここへドロップ\nまたはメニューバーからキャプチャ"
+        let message = NSLocalizedString("Drop an image here\nor capture from the menu bar", comment: "")
         let rect = CGRect(x: bounds.midX - 220, y: bounds.midY - 35, width: 440, height: 70)
         message.draw(in: rect, withAttributes: attributes)
     }
@@ -1095,7 +1095,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
             annotations.append(annotation)
             selectedAnnotationID = annotation.kind == .mosaic ? nil : annotation.id
             previewAnnotation = nil
-            registerUndo(to: stateBeforeDrag, actionName: "注釈を追加")
+            registerUndo(to: stateBeforeDrag, actionName: NSLocalizedString("Add Annotation", comment: ""))
             contentDidChange()
         }
     }
@@ -1177,7 +1177,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         guard offset != .zero else { return }
         let id = annotations[index].id
         if nudgeSeriesID != id {
-            registerUndo(to: snapshot(), actionName: "注釈を移動")
+            registerUndo(to: snapshot(), actionName: NSLocalizedString("Move Annotation", comment: ""))
         }
         nudgeSeriesID = id
         annotations[index].move(by: offset)
@@ -1189,7 +1189,7 @@ final class CanvasView: NSView, NSTextViewDelegate {
         let before = snapshot()
         annotations.remove(at: index)
         selectedAnnotationID = nil
-        registerUndo(to: before, actionName: "注釈を削除")
+        registerUndo(to: before, actionName: NSLocalizedString("Delete Annotation", comment: ""))
         contentDidChange()
     }
 
@@ -1355,12 +1355,12 @@ final class CanvasView: NSView, NSTextViewDelegate {
             selectedAnnotationID = annotation.id
             registerUndo(
                 to: session.before,
-                actionName: session.originalAnnotation == nil ? "テキストを追加" : "テキストを編集"
+                actionName: session.originalAnnotation == nil ? NSLocalizedString("Add Text", comment: "") : NSLocalizedString("Edit Text", comment: "")
             )
             contentDidChange()
         } else if commit, session.originalAnnotation != nil {
             selectedAnnotationID = nil
-            registerUndo(to: session.before, actionName: "テキストを削除")
+            registerUndo(to: session.before, actionName: NSLocalizedString("Delete Text", comment: ""))
             contentDidChange()
         } else {
             annotations = session.before.annotations
@@ -1557,15 +1557,15 @@ final class CanvasView: NSView, NSTextViewDelegate {
     private var selectionActionName: String {
         switch selectionDragMode {
         case .rotate:
-            return "注釈を回転"
+            return NSLocalizedString("Rotate Annotation", comment: "")
         case .endpoint:
-            return "線の長さと角度を変更"
+            return NSLocalizedString("Change Line Length and Angle", comment: "")
         case .resize:
-            return "図形のサイズを変更"
+            return NSLocalizedString("Resize Shape", comment: "")
         case .textResize:
-            return "文字のサイズを変更"
+            return NSLocalizedString("Resize Text", comment: "")
         case .move, .none:
-            return "注釈を移動"
+            return NSLocalizedString("Move Annotation", comment: "")
         }
     }
 

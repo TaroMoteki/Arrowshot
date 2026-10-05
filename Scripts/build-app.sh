@@ -62,6 +62,9 @@ mkdir -p "$contents_directory/MacOS" "$contents_directory/Resources"
 cp "$binary_path" "$contents_directory/MacOS/Arrowshot"
 cp "$repository_root/Resources/Info.plist" "$contents_directory/Info.plist"
 cp "$repository_root/Resources/Arrowshot.icns" "$contents_directory/Resources/Arrowshot.icns"
+for localization_directory in "$repository_root"/Resources/*.lproj; do
+    cp -R "$localization_directory" "$contents_directory/Resources/"
+done
 plutil -replace CFBundleIdentifier -string "$bundle_identifier" "$contents_directory/Info.plist"
 xattr -cr "$application_directory"
 codesign_flags=(--force --sign "$signing_identity")

@@ -122,9 +122,9 @@ enum HotKeyAction: String, CaseIterable {
 
     var title: String {
         switch self {
-        case .immediate: "十字スナップショット"
-        case .timer: "タイマー十字スナップショット"
-        case .fullScreen: "全画面スナップショット"
+        case .immediate: NSLocalizedString("Crosshair Snapshot", comment: "")
+        case .timer: NSLocalizedString("Timed Crosshair Snapshot", comment: "")
+        case .fullScreen: NSLocalizedString("Full Screen Snapshot", comment: "")
         }
     }
 

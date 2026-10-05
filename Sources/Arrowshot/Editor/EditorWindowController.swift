@@ -95,7 +95,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
     private let colorWell = CircularColorWell(frame: .zero)
     private let widthPopup = NSPopUpButton(frame: .zero, pullsDown: false)
     private let fillToggle = NSButton()
-    private let statusLabel = NSTextField(labelWithString: "画像を開いてください")
+    private let statusLabel = NSTextField(labelWithString: NSLocalizedString("Open an image to get started", comment: ""))
     private let cropSizeLabel = NSTextField(labelWithString: "— × —")
     private var editingControls: NSStackView!
     private var exportControls: NSStackView!
@@ -141,12 +141,12 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
     }
 
     func presentCapturedImage(_ image: NSImage) {
-        requestImageReplacement(with: image, sourceName: "スクリーンショット")
+        requestImageReplacement(with: image, sourceName: NSLocalizedString("Screenshot", comment: ""))
     }
 
     func openImage(at url: URL) {
         guard let image = NSImage(contentsOf: url) else {
-            showError(title: "画像を開けません", message: "対応している画像ファイルを選択してください。")
+            showError(title: NSLocalizedString("Can’t Open the Image", comment: ""), message: NSLocalizedString("Choose a supported image file.", comment: ""))
             return
         }
         requestImageReplacement(with: image, sourceName: url.lastPathComponent)
@@ -224,13 +224,13 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
         background.state = .followsWindowActiveState
         background.translatesAutoresizingMaskIntoConstraints = false
 
-        let undoButton = makeIconButton(symbol: "arrow.uturn.backward", toolTip: "取り消す（⌘Z）", action: #selector(undoEdit))
-        let redoButton = makeIconButton(symbol: "arrow.uturn.forward", toolTip: "やり直す（⌘⇧Z）", action: #selector(redoEdit))
+        let undoButton = makeIconButton(symbol: "arrow.uturn.backward", toolTip: NSLocalizedString("Undo (⌘Z)", comment: ""), action: #selector(undoEdit))
+        let redoButton = makeIconButton(symbol: "arrow.uturn.forward", toolTip: NSLocalizedString("Redo (⇧⌘Z)", comment: ""), action: #selector(redoEdit))
         let dragButton = makeDragButton()
-        let copyButton = makeIconButton(symbol: "doc.on.doc", toolTip: "コピー（⌘C）", action: #selector(copyImage))
-        let saveButton = makeIconButton(symbol: "square.and.arrow.down", toolTip: "保存（⌘S）／名前を付けて保存（⇧⌘S）", action: #selector(saveImage))
-        let cancelCropButton = makeButton(title: "キャンセル", action: #selector(cancelCrop), width: 88)
-        let applyCropButton = makeButton(title: "✓ 適用", action: #selector(applyCrop), width: 78)
+        let copyButton = makeIconButton(symbol: "doc.on.doc", toolTip: NSLocalizedString("Copy (⌘C)", comment: ""), action: #selector(copyImage))
+        let saveButton = makeIconButton(symbol: "square.and.arrow.down", toolTip: NSLocalizedString("Save (⌘S) / Save As (⇧⌘S)", comment: ""), action: #selector(saveImage))
+        let cancelCropButton = makeButton(title: NSLocalizedString("Cancel", comment: ""), action: #selector(cancelCrop), width: 88)
+        let applyCropButton = makeButton(title: NSLocalizedString("✓ Apply", comment: ""), action: #selector(applyCrop), width: 78)
 
         editingControls = NSStackView(views: [undoButton, redoButton])
         editingControls.orientation = .horizontal
@@ -298,7 +298,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
         ])
 
         widthPopup.translatesAutoresizingMaskIntoConstraints = false
-        widthPopup.toolTip = "線と文字の太さ"
+        widthPopup.toolTip = NSLocalizedString("Line and text width", comment: "")
         NSLayoutConstraint.activate([
             widthPopup.widthAnchor.constraint(equalToConstant: 48),
             widthPopup.heightAnchor.constraint(equalToConstant: 28)
@@ -307,9 +307,9 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
         fillToggle.setButtonType(.pushOnPushOff)
         fillToggle.bezelStyle = .texturedRounded
         fillToggle.imagePosition = .imageOnly
-        fillToggle.image = NSImage(systemSymbolName: "square.fill", accessibilityDescription: "塗りつぶし")?
+        fillToggle.image = NSImage(systemSymbolName: "square.fill", accessibilityDescription: NSLocalizedString("Fill", comment: ""))?
             .withSymbolConfiguration(.init(pointSize: 14, weight: .medium))
-        fillToggle.toolTip = "塗りつぶし（四角・楕円）"
+        fillToggle.toolTip = NSLocalizedString("Fill (rectangles and ellipses)", comment: "")
         fillToggle.target = self
         fillToggle.action = #selector(fillToggled(_:))
         fillToggle.translatesAutoresizingMaskIntoConstraints = false
@@ -338,7 +338,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
         button.target = self
         button.action = #selector(toolChanged(_:))
         button.tag = tool.rawValue
-        button.toolTip = "\(tool.title)（\(tool.shortcutLabel)）"
+        button.toolTip = String(format: NSLocalizedString("%@ (%@)", comment: "Tool name and its key"), tool.title, tool.shortcutLabel)
         button.isBordered = false
         button.focusRingType = .none
         button.setButtonType(.momentaryChange)
@@ -387,7 +387,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
             return true
         }
         image.isTemplate = true
-        image.accessibilityDescription = "モザイク"
+        image.accessibilityDescription = NSLocalizedString("Pixelate", comment: "")
         return image
     }
 
@@ -461,7 +461,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
 
     private func makeDragButton() -> DragExportButton {
         let button = DragExportButton()
-        button.toolTip = "ドラッグで画像を書き出す（Finderや他アプリにドロップ）"
+        button.toolTip = NSLocalizedString("Drag to export the image (drop it into Finder or another app)", comment: "")
         button.bezelStyle = .texturedRounded
         button.imagePosition = .imageOnly
         button.image = Self.dragGlyphImage()
@@ -547,9 +547,9 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
         canvasView.selectTool(tool)
         updateCropControls(isCropping: tool == .crop)
         if tool == .crop {
-            updateStatus(message: "白いハンドルまたは枠線をドラッグして切り取り範囲を調整します")
+            updateStatus(message: NSLocalizedString("Drag the white handles or edges to adjust the crop area", comment: ""))
         } else {
-            updateStatus(message: "画像上をドラッグして「\(tool.title)」を追加／既存の注釈をクリックして選択します")
+            updateStatus(message: String(format: NSLocalizedString("%@: drag on the image to add · Click an annotation to select it", comment: ""), tool.title))
         }
     }
 
@@ -618,7 +618,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
             isDirty = false
             currentSourceName = url.lastPathComponent
             updateWindowTitle()
-            updateStatus(message: "\(folder.lastPathComponent) に \(url.lastPathComponent) を保存しました")
+            updateStatus(message: String(format: NSLocalizedString("Saved %1$@ to %2$@", comment: "File name, folder name"), url.lastPathComponent, folder.lastPathComponent))
         } catch {
             // Couldn't write to the chosen folder — fall back to a Save panel.
             saveAsImage()
@@ -641,9 +641,9 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
             isDirty = false
             currentSourceName = url.lastPathComponent
             updateWindowTitle()
-            updateStatus(message: "\(url.lastPathComponent) を保存しました")
+            updateStatus(message: String(format: NSLocalizedString("Saved %@", comment: "File name"), url.lastPathComponent))
         } catch {
-            showError(title: "画像を保存できません", message: error.localizedDescription)
+            showError(title: NSLocalizedString("Can’t Save the Image", comment: ""), message: error.localizedDescription)
         }
     }
 
@@ -677,7 +677,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setData(pngData, forType: .png)
-        updateStatus(message: "完成画像をクリップボードへコピーしました")
+        updateStatus(message: NSLocalizedString("Copied the image to the clipboard", comment: ""))
     }
 
     @objc func pasteImage() {
@@ -687,7 +687,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
         }
         let pasteboard = NSPasteboard.general
         if let image = NSImage(pasteboard: pasteboard) {
-            requestImageReplacement(with: image, sourceName: "クリップボード")
+            requestImageReplacement(with: image, sourceName: NSLocalizedString("Clipboard", comment: ""))
             return
         }
 
@@ -702,7 +702,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
         }
 
         NSSound.beep()
-        updateStatus(message: "クリップボードに対応画像がありません")
+        updateStatus(message: NSLocalizedString("No supported image on the clipboard", comment: ""))
     }
 
     @objc func undoEdit() {
@@ -756,9 +756,9 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
         } else if let image = canvasView.baseImage {
             // Report the real bitmap size: a Retina capture holds 2x the points.
             let pixels = image.cgImageValue.map { CGSize(width: $0.width, height: $0.height) } ?? image.size
-            statusLabel.stringValue = "\(Int(pixels.width)) × \(Int(pixels.height)) px ・ \(zoomPercent)%"
+            statusLabel.stringValue = "\(Int(pixels.width)) × \(Int(pixels.height)) px · \(zoomPercent)%"
         } else {
-            statusLabel.stringValue = "画像を開いてください"
+            statusLabel.stringValue = NSLocalizedString("Open an image to get started", comment: "")
         }
     }
 

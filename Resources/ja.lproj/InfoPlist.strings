@@ -1,0 +1,2 @@
+/* Info.plist strings */
+"NSScreenCaptureUsageDescription" = "選択した画面領域またはウインドウを画像として取り込むために使用します。";

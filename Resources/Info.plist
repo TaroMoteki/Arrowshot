@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
-	<string>ja</string>
+	<string>en</string>
 	<key>CFBundleDisplayName</key>
 	<string>Arrowshot</string>
 	<key>CFBundleExecutable</key>
@@ -14,6 +14,11 @@
 	<string>io.github.taromoteki.Arrowshot</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>ja</string>
+	</array>
 	<key>CFBundleName</key>
 	<string>Arrowshot</string>
 	<key>CFBundlePackageType</key>
@@ -31,6 +36,6 @@
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright © 2026 Taro Moteki. Based on PictoJot.</string>
 	<key>NSScreenCaptureUsageDescription</key>
-	<string>選択した画面領域またはウインドウを画像として取り込むために使用します。</string>
+	<string>Arrowshot uses this to capture the screen area or window you select.</string>
 </dict>
 </plist>

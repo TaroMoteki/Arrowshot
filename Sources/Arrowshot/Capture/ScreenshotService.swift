@@ -8,9 +8,9 @@ enum ScreenshotServiceError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .displayNotFound: "対象ディスプレイを取得できませんでした。"
-        case .windowNotFound: "対象ウインドウを取得できませんでした。"
-        case .emptySelection: "選択範囲が小さすぎます。"
+        case .displayNotFound: NSLocalizedString("Couldn’t find the display to capture.", comment: "")
+        case .windowNotFound: NSLocalizedString("Couldn’t find the window to capture.", comment: "")
+        case .emptySelection: NSLocalizedString("The selection is too small.", comment: "")
         }
     }
 }

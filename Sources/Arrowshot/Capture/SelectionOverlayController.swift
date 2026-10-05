@@ -175,7 +175,7 @@ private final class SelectionOverlayView: NSView {
     }
 
     private func drawInstruction() {
-        let text = "ドラッグで範囲を選択／クリックでウインドウを選択／Escでキャンセル"
+        let text = NSLocalizedString("Drag to select an area · Click a window to capture it · Esc to cancel", comment: "")
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 14, weight: .medium),
             .foregroundColor: NSColor.white,

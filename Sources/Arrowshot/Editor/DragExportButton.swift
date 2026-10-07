@@ -4,14 +4,15 @@ import AppKit
 /// apps, Mail, browsers, and so on — like Shottr's drag-out handle.
 ///
 /// The drag carries several representations at once so almost any target works:
-/// a real (temporary) PNG file URL for file-based targets, plus raw PNG/TIFF
-/// data for targets that accept image data directly (chat boxes, web drop zones).
+/// a real (temporary) file in the default format from Settings for file-based
+/// targets, plus raw image data for targets that accept it directly (chat
+/// boxes, web drop zones).
 @MainActor
 final class DragExportButton: NSButton, NSDraggingSource {
     /// Returns the flattened image to export, or nil when there is nothing to drag.
     var imageProvider: (() -> NSImage?)?
-    /// Returns the file name to use for the dropped file.
-    var fileNameProvider: (() -> String)?
+    /// Returns the file name (with the format's extension) for the dropped file.
+    var fileNameProvider: ((ImageFormat) -> String)?
     /// Called once, when the drag has moved `moveAwayDistance` points from where it
     /// started (used to hide the editor window so it does not cover the drop target).
     var onDragMovedAway: (() -> Void)?
@@ -24,11 +25,12 @@ final class DragExportButton: NSButton, NSDraggingSource {
     private var dragStartPoint: NSPoint?
 
     override func mouseDown(with event: NSEvent) {
-        guard let image = imageProvider?(), let pngData = image.pngData() else {
+        let format = ImageFormat.preferred
+        guard let image = imageProvider?(), let data = format.data(for: image) else {
             NSSound.beep()
             return
         }
-        let fileName = fileNameProvider?() ?? "Arrowshot.png"
+        let fileName = fileNameProvider?(format) ?? "Arrowshot.\(format.fileExtension)"
 
         // Write a real temporary file so file-based drop targets get an actual
         // file without the user having to save first.
@@ -37,14 +39,14 @@ final class DragExportButton: NSButton, NSDraggingSource {
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let fileURL = directory.appendingPathComponent(fileName)
         do {
-            try pngData.write(to: fileURL, options: .atomic)
+            try data.write(to: fileURL, options: .atomic)
         } catch {
             NSSound.beep()
             return
         }
 
         let item = NSPasteboardItem()
-        item.setData(pngData, forType: .png)
+        item.setData(data, forType: format.pasteboardType)
         if let tiff = image.tiffRepresentation {
             item.setData(tiff, forType: .tiff)
         }

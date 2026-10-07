@@ -187,6 +187,18 @@ struct CoreLogicSmokeTests {
         precondition(representation.pixelsWide == 1022)
         precondition(representation.pixelsHigh == 659)
 
+        // JPEG keeps the pixel size and flattens transparency onto white.
+        guard let transparent = PixelExactImageRenderer.render(size: CGSize(width: 40, height: 30), drawing: { _ in }),
+              let jpegData = ImageFormat.jpeg.data(for: transparent),
+              let jpegRep = NSBitmapImageRep(data: jpegData),
+              let corner = jpegRep.colorAt(x: 0, y: 0)?.usingColorSpace(.sRGB) else {
+            preconditionFailure("Could not encode the JPEG fixture")
+        }
+        precondition(jpegData.starts(with: [0xFF, 0xD8]), "not a JPEG")
+        precondition(jpegRep.pixelsWide == 40 && jpegRep.pixelsHigh == 30)
+        precondition(corner.redComponent > 0.95 && corner.greenComponent > 0.95 && corner.blueComponent > 0.95,
+                     "transparent pixels should become white: \(corner)")
+
         print("Core logic smoke tests passed")
     }
 }

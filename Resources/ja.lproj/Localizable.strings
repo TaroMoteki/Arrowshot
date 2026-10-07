@@ -40,6 +40,7 @@
 "Crop Image" = "画像を切り取り";
 "Crosshair Snapshot" = "十字スナップショット";
 "Cut" = "切り取り";
+"Default Format" = "標準の形式";
 "Delete Annotation" = "注釈を削除";
 "Delete Text" = "テキストを削除";
 "Drag the white handles or edges to adjust the crop area" = "白いハンドルまたは枠線をドラッグして切り取り範囲を調整します";
@@ -53,6 +54,7 @@
 "File" = "ファイル";
 "Fill" = "塗りつぶし";
 "Fill (rectangles and ellipses)" = "塗りつぶし（四角・楕円）";
+"Format:" = "形式：";
 "Full Screen Snapshot" = "全画面スナップショット";
 "Hide Arrowshot" = "Arrowshotを隠す";
 "Language" = "言語";
@@ -109,6 +111,7 @@
 "Undo" = "取り消す";
 "Undo (⌘Z)" = "取り消す（⌘Z）";
 "Undo / Redo" = "取り消す / やり直す";
+"Used by ⌘S and drag export. Save As (⇧⌘S) lets you pick each time." = "⌘S とドラッグ書き出しで使います。名前を付けて保存（⇧⌘S）ではその都度選べます。";
 "View" = "表示";
 "When enabled, Arrowshot opens automatically when you log in and stays in the menu bar." = "有効にすると、Macへのログイン時にArrowshotが自動的に起動してメニューバーに常駐します。";
 "Zoom In" = "拡大";

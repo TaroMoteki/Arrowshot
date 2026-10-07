@@ -17,7 +17,7 @@ Everything runs locally on your Mac. No account, no cloud, no network access.
 - **Global hotkeys** — capture from any app; every capture shortcut can be changed in [Settings](#settings)
 - **Retina quality** — captures keep the display's native pixels
 - **English and Japanese** — follows your macOS language, or pick one in Settings
-- Zoom (pinch, ⌘+ / ⌘− / ⌘0), Shift to snap lines and arrows to 45°, undo/redo, PNG save, and clipboard copy
+- Zoom (pinch, ⌘+ / ⌘− / ⌘0), Shift to snap lines and arrows to 45°, undo/redo, PNG or JPEG save, and clipboard copy
 
 ## Shortcuts
 
@@ -47,6 +47,7 @@ Open Settings with ⌘, while Arrowshot is active (click its Dock icon first), o
 
 - **Capture shortcuts** — click a field and press the new key combination (include ⌘, ⌃, or ⌥). **Reset to Defaults** restores the original keys.
 - **Save folder** — where ⌘S saves instantly. Defaults to Downloads.
+- **Default format** — PNG or JPEG for ⌘S and drag export. Save As (⌘⇧S) lets you pick each time.
 - **Timer length** — 3 or 5 seconds for the timed capture.
 - **Language** — System, English, or 日本語. Arrowshot asks to restart to apply it.
 

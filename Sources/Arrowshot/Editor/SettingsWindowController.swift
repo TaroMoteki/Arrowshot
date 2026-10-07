@@ -122,7 +122,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
     init() {
         let window = NSWindow(
-            contentRect: CGRect(x: 0, y: 0, width: 480, height: 560),
+            contentRect: CGRect(x: 0, y: 0, width: 480, height: 640),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -190,10 +190,25 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         resetFolderButton.bezelStyle = .rounded
         let saveButtons = NSStackView(views: [changeFolderButton, resetFolderButton])
         saveButtons.spacing = 8
-        let saveSection = NSStackView(views: [saveHeading, saveFolderValueLabel, saveButtons])
+        let formatLabel = NSTextField(labelWithString: NSLocalizedString("Default Format", comment: ""))
+        formatLabel.font = .systemFont(ofSize: 13)
+        let formatSegmented = NSSegmentedControl(
+            labels: ImageFormat.allCases.map(\.label),
+            trackingMode: .selectOne,
+            target: self,
+            action: #selector(imageFormatChanged(_:))
+        )
+        formatSegmented.selectedSegment = ImageFormat.preferred.rawValue
+        let formatRow = NSStackView(views: [formatLabel, formatSegmented])
+        formatRow.spacing = 10
+        let formatHint = NSTextField(labelWithString: NSLocalizedString("Used by ⌘S and drag export. Save As (⇧⌘S) lets you pick each time.", comment: ""))
+        formatHint.font = .systemFont(ofSize: 11)
+        formatHint.textColor = .secondaryLabelColor
+        let saveSection = NSStackView(views: [saveHeading, saveFolderValueLabel, saveButtons, formatRow, formatHint])
         saveSection.orientation = .vertical
         saveSection.alignment = .leading
         saveSection.spacing = 8
+        saveSection.setCustomSpacing(14, after: saveButtons)
 
         // Reference list of the fixed editor shortcuts.
         let refHeading = NSTextField(labelWithString: NSLocalizedString("Editor Shortcuts", comment: ""))
@@ -307,6 +322,10 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
                 AppLanguage.relaunch()
             }
         }
+    }
+
+    @objc private func imageFormatChanged(_ sender: NSSegmentedControl) {
+        ImageFormat.setPreferred(ImageFormat(rawValue: sender.selectedSegment) ?? .png)
     }
 
     @objc private func timerSecondsChanged(_ sender: NSSegmentedControl) {

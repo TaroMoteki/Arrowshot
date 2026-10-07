@@ -13,6 +13,30 @@ extension NSImage {
         return representation.representation(using: .png, properties: [:])
     }
 
+    /// JPEG has no alpha, so transparent areas are flattened onto white rather
+    /// than turning black. Keeps the full pixel size like `pngData()`.
+    func jpegData(quality: CGFloat) -> Data? {
+        guard let cgImage = cgImageValue else { return nil }
+        let colorSpace = cgImage.colorSpace.flatMap { $0.model == .rgb ? $0 : nil }
+            ?? CGColorSpace(name: CGColorSpace.sRGB)!
+        guard let context = CGContext(
+            data: nil,
+            width: cgImage.width,
+            height: cgImage.height,
+            bitsPerComponent: 8,
+            bytesPerRow: 0,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
+        ) else { return nil }
+        let bounds = CGRect(x: 0, y: 0, width: cgImage.width, height: cgImage.height)
+        context.setFillColor(CGColor(gray: 1, alpha: 1))
+        context.fill(bounds)
+        context.draw(cgImage, in: bounds)
+        guard let flattened = context.makeImage() else { return nil }
+        let representation = NSBitmapImageRep(cgImage: flattened)
+        return representation.representation(using: .jpeg, properties: [.compressionFactor: quality])
+    }
+
     /// Rebuilds the image around a single bitmap, keeping every pixel. `size`
     /// stays logical when the bitmap is a whole-number Retina multiple of it
     /// (2x captures, @2x files); otherwise odd DPI metadata is discarded and the

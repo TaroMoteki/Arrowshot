@@ -471,7 +471,9 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
             button.heightAnchor.constraint(equalToConstant: 30)
         ])
         button.imageProvider = { [weak self] in self?.canvasView.renderedImage() }
-        button.fileNameProvider = { [weak self] in self?.suggestedFileName() ?? "Arrowshot.png" }
+        button.fileNameProvider = { [weak self] format in
+            self?.suggestedFileName(format: format) ?? "Arrowshot.\(format.fileExtension)"
+        }
         // Get the editor out of the way once the drag has moved a little, so it
         // does not cover the drop target. Dropped → stay hidden (reopen from the
         // Dock/menu, edits kept); cancelled → bring it back.
@@ -606,12 +608,13 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
     /// ⌘S — save immediately to the configured folder (Downloads by default),
     /// no dialog. Falls back to Save As if the folder can't be written.
     @objc func saveImage() {
-        guard let image = canvasView.renderedImage(), let data = image.pngData() else {
+        let format = ImageFormat.preferred
+        guard let image = canvasView.renderedImage(), let data = format.data(for: image) else {
             NSSound.beep()
             return
         }
         let folder = SaveLocation.folderURL
-        let url = SaveLocation.uniqueURL(for: suggestedFileName(), in: folder)
+        let url = SaveLocation.uniqueURL(for: suggestedFileName(format: format), in: folder)
         do {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
             try data.write(to: url, options: .atomic)
@@ -625,17 +628,23 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
         }
     }
 
-    /// ⇧⌘S — choose the location with a Save panel.
+    /// ⇧⌘S — choose the location and format with a Save panel. The format
+    /// starts at the default from Settings.
     @objc func saveAsImage() {
-        guard let image = canvasView.renderedImage(), let data = image.pngData() else {
+        guard let image = canvasView.renderedImage() else {
             NSSound.beep()
             return
         }
         let panel = NSSavePanel()
-        panel.allowedContentTypes = [.png]
-        panel.nameFieldStringValue = suggestedFileName()
+        let formatPicker = SaveFormatAccessory(panel: panel, format: ImageFormat.preferred)
+        panel.accessoryView = formatPicker
+        panel.nameFieldStringValue = suggestedFileName(format: formatPicker.format)
         panel.directoryURL = SaveLocation.folderURL
         guard panel.runModal() == .OK, let url = panel.url else { return }
+        guard let data = formatPicker.format.data(for: image) else {
+            NSSound.beep()
+            return
+        }
         do {
             try data.write(to: url, options: .atomic)
             isDirty = false
@@ -770,10 +779,10 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
     @objc func zoomOut() { canvasView.zoomOut() }
     @objc func zoomFit() { canvasView.resetZoom() }
 
-    private func suggestedFileName() -> String {
+    private func suggestedFileName(format: ImageFormat) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd HH.mm.ss"
-        return "Arrowshot \(formatter.string(from: Date())).png"
+        return "Arrowshot \(formatter.string(from: Date())).\(format.fileExtension)"
     }
 
     private func showError(title: String, message: String) {
@@ -783,5 +792,44 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate, Canvas
         alert.messageText = title
         alert.informativeText = message
         alert.runModal()
+    }
+}
+
+/// The "Format: PNG / JPEG" row under the Save As panel. Switching it updates
+/// the allowed type, which also swaps the file name's extension.
+@MainActor
+private final class SaveFormatAccessory: NSView {
+    private(set) var format: ImageFormat {
+        didSet { panel?.allowedContentTypes = [format.contentType] }
+    }
+    private weak var panel: NSSavePanel?
+
+    init(panel: NSSavePanel, format: ImageFormat) {
+        self.panel = panel
+        self.format = format
+        super.init(frame: NSRect(x: 0, y: 0, width: 260, height: 44))
+        panel.allowedContentTypes = [format.contentType]
+
+        let label = NSTextField(labelWithString: NSLocalizedString("Format:", comment: "Save panel"))
+        let popup = NSPopUpButton(frame: .zero, pullsDown: false)
+        popup.addItems(withTitles: ImageFormat.allCases.map(\.label))
+        popup.selectItem(at: format.rawValue)
+        popup.target = self
+        popup.action = #selector(formatChanged(_:))
+
+        let row = NSStackView(views: [label, popup])
+        row.spacing = 8
+        row.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(row)
+        NSLayoutConstraint.activate([
+            row.centerXAnchor.constraint(equalTo: centerXAnchor),
+            row.centerYAnchor.constraint(equalTo: centerYAnchor)
+        ])
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    @objc private func formatChanged(_ sender: NSPopUpButton) {
+        format = ImageFormat(rawValue: sender.indexOfSelectedItem) ?? .png
     }
 }

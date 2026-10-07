@@ -17,6 +17,7 @@ CLANG_MODULE_CACHE_PATH="$module_cache" swiftc \
     -module-cache-path "$module_cache" \
     Sources/Arrowshot/Support/Geometry.swift \
     Sources/Arrowshot/Support/ImageExtensions.swift \
+    Sources/Arrowshot/Support/ImageFormat.swift \
     Sources/Arrowshot/Support/PixelExactImageRenderer.swift \
     Sources/Arrowshot/Support/ArrowshotStyle.swift \
     Sources/Arrowshot/Support/EditorCursors.swift \
